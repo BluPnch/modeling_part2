@@ -44,12 +44,9 @@ namespace Lab1
         {
             this.SuspendLayout();
             
-            // Main form
-            this.Text = "Генерация псевдослучайных чисел - Лабораторная работа №1";
-            this.Size = new Size(900, 600);
+            this.Size = new Size(1100, 600);
             this.StartPosition = FormStartPosition.CenterScreen;
             
-            // Initialize random and collections
             random = new Random();
             userInputBoxes = new List<TextBox>();
             
@@ -60,16 +57,68 @@ namespace Lab1
             GenerateNewNumbers();
         }
 
+        private void GenerateNewNumbers()
+        {
+            // Обновляем числа в табличном способе с разными диапазонами
+            for (int i = 0; i < NumbersCount; i++)
+            {
+                // Первый столбец - однозначные числа (1-9)
+                Label numberLabel1 = tablePanel.GetControlFromPosition(1, i + 2) as Label;
+                if (numberLabel1 != null)
+                {
+                    numberLabel1.Text = random.Next(1, 10).ToString(); // 1-9
+                }
+
+                // Второй столбец - двузначные числа (10-99)
+                Label numberLabel2 = tablePanel.GetControlFromPosition(2, i + 2) as Label;
+                if (numberLabel2 != null)
+                {
+                    numberLabel2.Text = random.Next(10, 100).ToString(); // 10-99
+                }
+
+                // Третий столбец - трехзначные числа (100-199)
+                Label numberLabel3 = tablePanel.GetControlFromPosition(3, i + 2) as Label;
+                if (numberLabel3 != null)
+                {
+                    numberLabel3.Text = random.Next(100, 200).ToString(); // 100-199
+                }
+            }
+
+            // Обновляем числа в алгоритмическом способе (как было)
+            for (int i = 0; i < NumbersCount; i++)
+            {
+                for (int j = 4; j <= 6; j++)
+                {
+                    Label numberLabel = tablePanel.GetControlFromPosition(j, i + 2) as Label;
+                    if (numberLabel != null)
+                    {
+                        numberLabel.Text = random.Next(1, 200).ToString();
+                    }
+                }
+            }
+
+            // Очищаем ввод пользователя
+            foreach (TextBox inputBox in userInputBoxes)
+            {
+                inputBox.Text = "";
+            }
+
+            // ОБНОВЛЯЕМ результаты случайности для всех столбцов
+            UpdateRandomnessResults();
+
+            userResultLabel.Text = "Не случайно";
+            userResultLabel.ForeColor = Color.Red;
+        }
+
         private void CreateTable()
         {
             tablePanel = new TableLayoutPanel();
             tablePanel.Dock = DockStyle.Fill;
-            tablePanel.ColumnCount = 8; // 8 колонок как в таблице
+            tablePanel.ColumnCount = 8; 
             tablePanel.RowCount = NumbersCount + 2;
             tablePanel.CellBorderStyle = TableLayoutPanelCellBorderStyle.Single;
             tablePanel.AutoScroll = true;
             
-            // Устанавливаем ширину колонок
             tablePanel.ColumnStyles.Clear();
             for (int i = 0; i < 8; i++)
             {
@@ -137,16 +186,32 @@ namespace Lab1
                     AutoSize = true
                 }, 0, i + 2);
                 
-                for (int j = 0; j < 3; j++)
-                {
-                    tablePanel.Controls.Add(new Label { 
-                        Text = random.Next(1, 200).ToString(), 
-                        TextAlign = ContentAlignment.MiddleCenter, 
-                        Dock = DockStyle.Fill,
-                        AutoSize = true
-                    }, j + 1, i + 2);
-                }
+                // Табличный способ с разными диапазонами
+                // Первый столбец - однозначные числа
+                tablePanel.Controls.Add(new Label { 
+                    Text = random.Next(1, 10).ToString(),
+                    TextAlign = ContentAlignment.MiddleCenter, 
+                    Dock = DockStyle.Fill,
+                    AutoSize = true
+                }, 1, i + 2);
                 
+                // Второй столбец - двузначные числа
+                tablePanel.Controls.Add(new Label { 
+                    Text = random.Next(10, 100).ToString(),
+                    TextAlign = ContentAlignment.MiddleCenter, 
+                    Dock = DockStyle.Fill,
+                    AutoSize = true
+                }, 2, i + 2);
+                
+                // Третий столбец - трехзначные числа
+                tablePanel.Controls.Add(new Label { 
+                    Text = random.Next(100, 200).ToString(), 
+                    TextAlign = ContentAlignment.MiddleCenter, 
+                    Dock = DockStyle.Fill,
+                    AutoSize = true
+                }, 3, i + 2);
+                
+                // Алгоритмический способ (как было)
                 for (int j = 0; j < 3; j++)
                 {
                     tablePanel.Controls.Add(new Label { 
@@ -168,6 +233,7 @@ namespace Lab1
                 tablePanel.Controls.Add(inputBox, 7, i + 2);
             }
             
+            // Остальной код CreateTable остается без изменений...
             tablePanel.Controls.Add(new Label { 
                 Text = "Результат:", 
                 Font = new Font("Arial", 10, FontStyle.Bold), 
@@ -301,47 +367,6 @@ namespace Lab1
             {
                 e.Handled = true;
             }
-        }
-
-        private void GenerateNewNumbers()
-        {
-            // Обновляем числа в табличном способе
-            for (int i = 0; i < NumbersCount; i++)
-            {
-                for (int j = 1; j <= 3; j++)
-                {
-                    Label numberLabel = tablePanel.GetControlFromPosition(j, i + 2) as Label;
-                    if (numberLabel != null)
-                    {
-                        numberLabel.Text = random.Next(1, 200).ToString();
-                    }
-                }
-            }
-    
-            // Обновляем числа в алгоритмическом способе
-            for (int i = 0; i < NumbersCount; i++)
-            {
-                for (int j = 4; j <= 6; j++)
-                {
-                    Label numberLabel = tablePanel.GetControlFromPosition(j, i + 2) as Label;
-                    if (numberLabel != null)
-                    {
-                        numberLabel.Text = random.Next(1, 200).ToString();
-                    }
-                }
-            }
-    
-            // Очищаем ввод пользователя
-            foreach (TextBox inputBox in userInputBoxes)
-            {
-                inputBox.Text = "";
-            }
-    
-            // ОБНОВЛЯЕМ результаты случайности для всех столбцов
-            UpdateRandomnessResults();
-    
-            userResultLabel.Text = "Не случайно";
-            userResultLabel.ForeColor = Color.Red;
         }
         
         private void UpdateRandomnessResults()
@@ -558,6 +583,8 @@ namespace Lab1
         }
 
         // Критерий Луна
+        // Критерий Луна
+        // Критерий Луна - ИСПРАВЛЕННАЯ ВЕРСИЯ
         private double CalculateMoonPhaseScore(List<int> numbers)
         {
             int dayOfMonth = DateTime.Now.Day;
@@ -565,41 +592,50 @@ namespace Lab1
             // Определяем фазу луны на основе дня месяца с учетом длительности фаз
             (string moonPhaseName, int moonPhaseNumber, int phaseDuration) = GetMoonPhase(dayOfMonth);
             
-            // ИСПРАВЛЕНИЕ: используем moonPhaseNumber напрямую, а не moonPhaseNumber - 1
-            int targetRemainder = moonPhaseNumber; // Теперь ищем числа, где abs(n) % 8 == 5 для Full Moon
-            
-            int moonMatches = numbers.Count(n => n != 0 && Math.Abs(n) % 8 == targetRemainder);
+            // ИСПРАВЛЕНИЕ: ищем числа, КРАТНЫЕ номеру фазы, а не с остатком
+            int moonMultiples = numbers.Count(n => n != 0 && n % moonPhaseNumber == 0);
             
             // Идеальное соотношение учитывает длительность фазы
             double idealRatio = phaseDuration / 29.5; // 29.5 - средняя длительность лунного цикла
-            double actualRatio = (double)moonMatches / numbers.Count;
+            double actualRatio = (double)moonMultiples / numbers.Count;
             
-            double deviation = Math.Abs(actualRatio - idealRatio);
+            // Чем БОЛЬШЕ кратных чисел - тем МЕНЕЕ случайна последовательность
+            double deviation = Math.Max(0, actualRatio - idealRatio); // Только превышение
             
-            // Улучшенная логика расчета с учетом количества кратных чисел
-            double baseScore = Math.Max(0, 1.0 - (deviation * 2));
-            
-            
-            double score = Math.Max(0, Math.Min(1, baseScore));
+            // Базовый счет: 1.0 - нет превышения, 0.0 - сильное превышение
+            double baseScore = Math.Max(0, 1.0 - (deviation));
             
             // Вывод в консоль
             Console.WriteLine($"=== MOON PHASE CRITERION ===");
             Console.WriteLine($"Day of month: {dayOfMonth}");
             Console.WriteLine($"Current Moon Phase: {moonPhaseName} (Phase number: {moonPhaseNumber})");
-            Console.WriteLine($"Phase duration: {phaseDuration} days");
+            Console.WriteLine($"Looking for numbers MULTIPLE of {moonPhaseNumber}");
             Console.WriteLine($"Numbers checked: {string.Join(", ", numbers)}");
-            Console.WriteLine($"Looking for numbers where (abs(n) % 8) == {targetRemainder}");
             
-            var matchingNumbers = numbers.Where(n => n != 0 && Math.Abs(n) % 8 == targetRemainder).ToList();
-            Console.WriteLine($"Matching numbers: {(matchingNumbers.Any() ? string.Join(", ", matchingNumbers) : "None")}");
+            var multiples = numbers.Where(n => n != 0 && n % moonPhaseNumber == 0).ToList();
+            Console.WriteLine($"Multiples of {moonPhaseNumber}: {(multiples.Any() ? string.Join(", ", multiples) : "None")}");
             
-            Console.WriteLine($"Numbers matching moon phase: {moonMatches}");
+            Console.WriteLine($"Numbers multiple of moon phase: {moonMultiples}");
             Console.WriteLine($"Ideal ratio: {idealRatio:P1} (based on {phaseDuration} days duration)");
             Console.WriteLine($"Actual ratio: {actualRatio:P2}");
-            Console.WriteLine($"Deviation: {deviation:P2}, Base score: {baseScore:P2}");
+            Console.WriteLine($"Deviation (excess only): {deviation:P2}, Base score: {baseScore:P2}");
+            
+            // Дополнительная информация для понимания логики
+            if (moonMultiples == 0)
+            {
+                Console.WriteLine($"NO multiples - MOST RANDOM (score: {baseScore:P2})");
+            }
+            else if (actualRatio <= idealRatio)
+            {
+                Console.WriteLine($"Within acceptable range - RANDOM (score: {baseScore:P2})");
+            }
+            else
+            {
+                Console.WriteLine($"TOO MANY multiples - NOT RANDOM (score: {baseScore:P2})");
+            }
             Console.WriteLine($"=============================");
             
-            return score;
+            return baseScore;
         }
 
         private (string phaseName, int phaseNumber, int phaseDuration) GetMoonPhase(int dayOfMonth)
