@@ -1,10 +1,12 @@
-using System;
-using System.Collections.Generic;
-using System.Drawing;
-using System.Linq;
-using System.Windows.Forms;
+using System.Diagnostics;
+using System.Net.Http;
+using System.Text.Json;
+using System.Threading.Tasks;
+using HtmlAgilityPack;
+using HtmlDocument = HtmlAgilityPack.HtmlDocument;
 
-namespace RandomNumberLab
+
+namespace Lab1
 {
     public partial class Lab1 : Form
     {
@@ -15,10 +17,28 @@ namespace RandomNumberLab
         private Label randomResultLabel;
         private Label userResultLabel;
         
+        private double? cachedTemperature = null;
+        private DateTime lastTemperatureUpdate = DateTime.MinValue;
+        
+        private enum RandomnessMode { Normal, Lunar, Temp, Mixed }
+        private RandomnessMode currentMode = RandomnessMode.Normal;
+        
+        public class WeatherResponse
+        {
+            public MainData main { get; set; }
+        }
+
+        public class MainData
+        {
+            public double temp { get; set; }
+        }
+        
+        
         public Lab1()
         {
             InitializeComponent();
         }
+        
 
         private void InitializeComponent()
         {
@@ -56,18 +76,43 @@ namespace RandomNumberLab
                 tablePanel.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             }
             
-            // Заголовки таблицы
-            string[] headers = { "№", "Табличный способ", "", "", "Алгоритмический способ", "", "", "Рудаков" };
-            for (int i = 0; i < headers.Length; i++)
-            {
-                tablePanel.Controls.Add(new Label { 
-                    Text = headers[i], 
-                    Font = new Font("Arial", 10, FontStyle.Bold), 
-                    TextAlign = ContentAlignment.MiddleCenter, 
-                    Dock = DockStyle.Fill,
-                    AutoSize = true
-                }, i, 0);
-            }
+            // Заголовки
+            tablePanel.Controls.Add(new Label { 
+                Text = "№", 
+                Font = new Font("Arial", 10, FontStyle.Bold), 
+                TextAlign = ContentAlignment.MiddleCenter, 
+                Dock = DockStyle.Fill,
+                AutoSize = true
+            }, 0, 0);
+            
+            // Табличный способ
+            tablePanel.Controls.Add(new Label { 
+                Text = "Табличный способ", 
+                Font = new Font("Arial", 10, FontStyle.Bold), 
+                TextAlign = ContentAlignment.MiddleCenter, 
+                Dock = DockStyle.Fill,
+                AutoSize = true
+            }, 1, 0);
+            tablePanel.SetColumnSpan(tablePanel.GetControlFromPosition(1, 0), 3);
+            
+            // Алгоритмический способ
+            tablePanel.Controls.Add(new Label { 
+                Text = "Алгоритмический способ", 
+                Font = new Font("Arial", 10, FontStyle.Bold), 
+                TextAlign = ContentAlignment.MiddleCenter, 
+                Dock = DockStyle.Fill,
+                AutoSize = true
+            }, 4, 0);
+            tablePanel.SetColumnSpan(tablePanel.GetControlFromPosition(4, 0), 3);
+            
+            // Рудаков
+            tablePanel.Controls.Add(new Label { 
+                Text = "Пользовательское", 
+                Font = new Font("Arial", 10, FontStyle.Bold), 
+                TextAlign = ContentAlignment.MiddleCenter, 
+                Dock = DockStyle.Fill,
+                AutoSize = true
+            }, 7, 0);
             
             // Подзаголовки для табличного и алгоритмического способов
             string[] subHeaders = { "", "1", "2", "3", "1", "2", "3", "" };
@@ -85,7 +130,6 @@ namespace RandomNumberLab
             // Заполняем таблицу данными
             for (int i = 0; i < NumbersCount; i++)
             {
-                // Номер строки
                 tablePanel.Controls.Add(new Label { 
                     Text = (i + 1).ToString(), 
                     TextAlign = ContentAlignment.MiddleCenter, 
@@ -93,7 +137,6 @@ namespace RandomNumberLab
                     AutoSize = true
                 }, 0, i + 2);
                 
-                // Табличный способ (3 колонки)
                 for (int j = 0; j < 3; j++)
                 {
                     tablePanel.Controls.Add(new Label { 
@@ -104,7 +147,6 @@ namespace RandomNumberLab
                     }, j + 1, i + 2);
                 }
                 
-                // Алгоритмический способ (3 колонки)
                 for (int j = 0; j < 3; j++)
                 {
                     tablePanel.Controls.Add(new Label { 
@@ -115,7 +157,6 @@ namespace RandomNumberLab
                     }, j + 4, i + 2);
                 }
                 
-                // Колонка Рудаков (ввод пользователя)
                 TextBox inputBox = new TextBox { 
                     MaxLength = 1,
                     TextAlign = HorizontalAlignment.Center,
@@ -127,7 +168,6 @@ namespace RandomNumberLab
                 tablePanel.Controls.Add(inputBox, 7, i + 2);
             }
             
-            // Строка результатов
             tablePanel.Controls.Add(new Label { 
                 Text = "Результат:", 
                 Font = new Font("Arial", 10, FontStyle.Bold), 
@@ -136,7 +176,6 @@ namespace RandomNumberLab
                 AutoSize = true
             }, 0, NumbersCount + 2);
             
-            // Результаты для табличного способа
             for (int i = 1; i <= 3; i++)
             {
                 List<int> tableNumbers = new List<int>();
@@ -148,10 +187,10 @@ namespace RandomNumberLab
                         tableNumbers.Add(num);
                     }
                 }
-    
+
                 double tableScore = CalculateCustomRandomness(tableNumbers);
                 string resultText = tableScore > 50 ? $"Случайно ({tableScore:F1}%)" : $"Не случайно ({tableScore:F1}%)";
-    
+
                 tablePanel.Controls.Add(new Label { 
                     Text = resultText, 
                     TextAlign = ContentAlignment.MiddleCenter, 
@@ -162,7 +201,7 @@ namespace RandomNumberLab
                 }, i, NumbersCount + 2);
             }
 
-// Результаты для алгоритмического способа
+            // Результаты для алгоритмического способа
             for (int i = 4; i <= 6; i++)
             {
                 List<int> algoNumbers = new List<int>();
@@ -174,10 +213,10 @@ namespace RandomNumberLab
                         algoNumbers.Add(num);
                     }
                 }
-    
+
                 double algoScore = CalculateCustomRandomness(algoNumbers);
                 string resultText = algoScore > 50 ? $"Случайно ({algoScore:F1}%)" : $"Не случайно ({algoScore:F1}%)";
-    
+
                 tablePanel.Controls.Add(new Label { 
                     Text = resultText, 
                     TextAlign = ContentAlignment.MiddleCenter, 
@@ -206,29 +245,52 @@ namespace RandomNumberLab
         {
             Panel buttonPanel = new Panel { 
                 Dock = DockStyle.Bottom, 
-                Height = 80,
+                Height = 100,  // Увеличили высоту для нового элемента
                 BackColor = Color.LightGray
             };
-            
+    
+            // ДОБАВИТЬ ВЫПАДАЮЩИЙ СПИСОК ДЛЯ РЕЖИМОВ
+            Label modeLabel = new Label { 
+                Text = "Режим оценки:", 
+                Size = new Size(100, 20), 
+                Location = new Point(10, 15),
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+    
+            ComboBox modeComboBox = new ComboBox { 
+                Size = new Size(120, 25), 
+                Location = new Point(115, 12),
+                DropDownStyle = ComboBoxStyle.DropDownList
+            };
+            modeComboBox.Items.AddRange(new object[] { "Нормальный", "Лунный", "Забавный", "Смешанный" });
+            modeComboBox.SelectedIndex = 0;
+            modeComboBox.SelectedIndexChanged += (s, e) => 
+            {
+                currentMode = (RandomnessMode)modeComboBox.SelectedIndex;
+                UpdateRandomnessResults(); // Обновляем результаты при смене режима
+            };
+    
             Button generateBtn = new Button { 
                 Text = "Сгенерировать новые числа", 
                 Size = new Size(180, 35), 
-                Location = new Point(10, 20),
+                Location = new Point(250, 10),
                 BackColor = Color.White
             };
             generateBtn.Click += (s, e) => GenerateNewNumbers();
-            
+    
             Button checkBtn = new Button { 
                 Text = "Проверить случайность", 
                 Size = new Size(180, 35), 
-                Location = new Point(200, 20),
+                Location = new Point(440, 10),
                 BackColor = Color.White
             };
             checkBtn.Click += (s, e) => CheckRandomness();
-            
+    
+            buttonPanel.Controls.Add(modeLabel);
+            buttonPanel.Controls.Add(modeComboBox);
             buttonPanel.Controls.Add(generateBtn);
             buttonPanel.Controls.Add(checkBtn);
-            
+    
             this.Controls.Add(buttonPanel);
         }
 
@@ -255,7 +317,7 @@ namespace RandomNumberLab
                     }
                 }
             }
-            
+    
             // Обновляем числа в алгоритмическом способе
             for (int i = 0; i < NumbersCount; i++)
             {
@@ -268,15 +330,71 @@ namespace RandomNumberLab
                     }
                 }
             }
-            
+    
             // Очищаем ввод пользователя
             foreach (TextBox inputBox in userInputBoxes)
             {
                 inputBox.Text = "";
             }
-            
+    
+            // ОБНОВЛЯЕМ результаты случайности для всех столбцов
+            UpdateRandomnessResults();
+    
             userResultLabel.Text = "Не случайно";
             userResultLabel.ForeColor = Color.Red;
+        }
+        
+        private void UpdateRandomnessResults()
+        {
+            // Обновляем результаты для табличного способа
+            for (int i = 1; i <= 3; i++)
+            {
+                List<int> tableNumbers = new List<int>();
+                for (int row = 2; row < NumbersCount + 2; row++)
+                {
+                    Label numberLabel = tablePanel.GetControlFromPosition(i, row) as Label;
+                    if (numberLabel != null && int.TryParse(numberLabel.Text, out int num))
+                    {
+                        tableNumbers.Add(num);
+                    }
+                }
+        
+                double tableScore = CalculateCustomRandomness(tableNumbers);
+                string resultText = tableScore > 50 ? $"Случайно ({tableScore:F1}%)" : $"Не случайно ({tableScore:F1}%)";
+        
+                // Обновляем существующую метку
+                Label resultLabel = tablePanel.GetControlFromPosition(i, NumbersCount + 2) as Label;
+                if (resultLabel != null)
+                {
+                    resultLabel.Text = resultText;
+                    resultLabel.ForeColor = tableScore > 50 ? Color.Green : Color.Red;
+                }
+            }
+
+            // Обновляем результаты для алгоритмического способа
+            for (int i = 4; i <= 6; i++)
+            {
+                List<int> algoNumbers = new List<int>();
+                for (int row = 2; row < NumbersCount + 2; row++)
+                {
+                    Label numberLabel = tablePanel.GetControlFromPosition(i, row) as Label;
+                    if (numberLabel != null && int.TryParse(numberLabel.Text, out int num))
+                    {
+                        algoNumbers.Add(num);
+                    }
+                }
+        
+                double algoScore = CalculateCustomRandomness(algoNumbers);
+                string resultText = algoScore > 50 ? $"Случайно ({algoScore:F1}%)" : $"Не случайно ({algoScore:F1}%)";
+        
+                // Обновляем существующую метку
+                Label resultLabel = tablePanel.GetControlFromPosition(i, NumbersCount + 2) as Label;
+                if (resultLabel != null)
+                {
+                    resultLabel.Text = resultText;
+                    resultLabel.ForeColor = algoScore > 50 ? Color.Green : Color.Red;
+                }
+            }
         }
 
         private void CheckRandomness()
@@ -312,14 +430,93 @@ namespace RandomNumberLab
                 userResultLabel.Text = "Введите ≥3 цифр";
                 userResultLabel.ForeColor = Color.Orange;
             }
+            
+            UpdateRandomnessResults();
         }
 
-        // СОБСТВЕННЫЙ КРИТЕРИЙ СЛУЧАЙНОСТИ: "КРИТЕРИЙ ЧЕРЕДОВАНИЯ ПАРИТЕТА"
         private double CalculateCustomRandomness(List<int> numbers)
         {
             if (numbers.Count < 3) return 0;
 
-            // 1. Анализ чередования чётности
+            switch (currentMode)
+            {
+                case RandomnessMode.Lunar:
+                    return CalculateLunarRandomness(numbers); 
+                // case RandomnessMode.Normal:
+                //     return CalculateNormalRandomness(numbers);
+                // case RandomnessMode.Temp:
+                //     return CalculateTemperatureRandomness(numbers);
+                // case RandomnessMode.Mixed:
+                //     return CalculateMixedRandomness(numbers);
+                default:
+                    return CalculateNormalRandomness(numbers);
+            }
+        }
+
+        private double CalculateNormalRandomness(List<int> numbers)
+        {
+            double parityScore = CalculateParityScore(numbers);
+            double directionScore = CalculateDirectionScore(numbers);
+            double uniquenessScore = CalculateUniquenessScore(numbers);
+
+            double finalScore = (
+                parityScore * 0.4 + 
+                directionScore * 0.4 + 
+                uniquenessScore * 0.2
+            ) * 100;
+
+            return Math.Min(100, Math.Max(0, finalScore));
+        }
+
+        private double CalculateLunarRandomness(List<int> numbers)
+        {
+            double moonPhaseScore = CalculateMoonPhaseScore(numbers);
+        
+            double finalScore = moonPhaseScore * 100;
+        
+            return Math.Min(100, Math.Max(0, finalScore));
+        }
+
+        // private double CalculateTemperatureRandomness(List<int> numbers)
+        // {
+        //     double temperatureScore = CalculateTemperatureScore(numbers);
+        //
+        //     double finalScore = temperatureScore * 100;
+        //
+        //     return Math.Min(100, Math.Max(0, finalScore));
+        // }
+
+        
+        
+        private double CalculateMixedRandomness(List<int> numbers)
+        {
+            double parityScore = CalculateParityScore(numbers);
+            double directionScore = CalculateDirectionScore(numbers);
+            double uniquenessScore = CalculateUniquenessScore(numbers);
+            // double temperatureScore = CalculateTemperatureScore(numbers);
+            double moonPhaseScore = CalculateMoonPhaseScore(numbers);
+
+            // double finalScore = (
+            //     parityScore * 0.25 + 
+            //     directionScore * 0.25 + 
+            //     uniquenessScore * 0.2 +
+            //     temperatureScore * 0.15 +
+            //     moonPhaseScore * 0.15
+            // ) * 100;
+            
+            double finalScore = (
+                parityScore * 0.25 + 
+                directionScore * 0.25 + 
+                uniquenessScore * 0.25 +
+                moonPhaseScore * 0.25
+            ) * 100;
+
+            return Math.Min(100, Math.Max(0, finalScore));
+        }
+
+        // Анализ чередования чётности
+        private double CalculateParityScore(List<int> numbers)
+        {
             int parityChanges = 0;
             for (int i = 1; i < numbers.Count; i++)
             {
@@ -331,7 +528,13 @@ namespace RandomNumberLab
                 }
             }
 
-            // 2. Анализ "шагов" - разностей между соседними числами
+            double idealParityChanges = numbers.Count - 1;
+            return idealParityChanges > 0 ? parityChanges / idealParityChanges : 0;
+        }
+
+        // Анализ изменения направления
+        private double CalculateDirectionScore(List<int> numbers)
+        {
             int directionChanges = 0;
             for (int i = 2; i < numbers.Count; i++)
             {
@@ -344,20 +547,281 @@ namespace RandomNumberLab
                 }
             }
 
-            // 3. Анализ уникальности чисел
-            double uniqueness = (double)numbers.Distinct().Count() / numbers.Count;
-
-            // 4. Комбинированная оценка
-            double idealParityChanges = numbers.Count - 1;
-            double parityScore = parityChanges / idealParityChanges;
-
             double idealDirectionChanges = numbers.Count - 2;
-            double directionScore = idealDirectionChanges > 0 ? directionChanges / idealDirectionChanges : 0;
-
-            // Итоговый показатель случайности (0-100%)
-            double finalScore = (parityScore * 0.4 + directionScore * 0.4 + uniqueness * 0.2) * 100;
-
-            return Math.Min(100, Math.Max(0, finalScore));
+            return idealDirectionChanges > 0 ? directionChanges / idealDirectionChanges : 0;
         }
+
+        // Анализ уникальности чисел
+        private double CalculateUniquenessScore(List<int> numbers)
+        {
+            return (double)numbers.Distinct().Count() / numbers.Count;
+        }
+
+        // Критерий Луна
+        private double CalculateMoonPhaseScore(List<int> numbers)
+        {
+            int dayOfMonth = DateTime.Now.Day;
+            
+            // Определяем фазу луны на основе дня месяца с учетом длительности фаз
+            (string moonPhaseName, int moonPhaseNumber, int phaseDuration) = GetMoonPhase(dayOfMonth);
+            
+            // ИСПРАВЛЕНИЕ: используем moonPhaseNumber напрямую, а не moonPhaseNumber - 1
+            int targetRemainder = moonPhaseNumber; // Теперь ищем числа, где abs(n) % 8 == 5 для Full Moon
+            
+            int moonMatches = numbers.Count(n => n != 0 && Math.Abs(n) % 8 == targetRemainder);
+            
+            // Идеальное соотношение учитывает длительность фазы
+            double idealRatio = phaseDuration / 29.5; // 29.5 - средняя длительность лунного цикла
+            double actualRatio = (double)moonMatches / numbers.Count;
+            
+            double deviation = Math.Abs(actualRatio - idealRatio);
+            
+            // Улучшенная логика расчета с учетом количества кратных чисел
+            double baseScore = Math.Max(0, 1.0 - (deviation * 2));
+            
+            
+            double score = Math.Max(0, Math.Min(1, baseScore));
+            
+            // Вывод в консоль
+            Console.WriteLine($"=== MOON PHASE CRITERION ===");
+            Console.WriteLine($"Day of month: {dayOfMonth}");
+            Console.WriteLine($"Current Moon Phase: {moonPhaseName} (Phase number: {moonPhaseNumber})");
+            Console.WriteLine($"Phase duration: {phaseDuration} days");
+            Console.WriteLine($"Numbers checked: {string.Join(", ", numbers)}");
+            Console.WriteLine($"Looking for numbers where (abs(n) % 8) == {targetRemainder}");
+            
+            var matchingNumbers = numbers.Where(n => n != 0 && Math.Abs(n) % 8 == targetRemainder).ToList();
+            Console.WriteLine($"Matching numbers: {(matchingNumbers.Any() ? string.Join(", ", matchingNumbers) : "None")}");
+            
+            Console.WriteLine($"Numbers matching moon phase: {moonMatches}");
+            Console.WriteLine($"Ideal ratio: {idealRatio:P1} (based on {phaseDuration} days duration)");
+            Console.WriteLine($"Actual ratio: {actualRatio:P2}");
+            Console.WriteLine($"Deviation: {deviation:P2}, Base score: {baseScore:P2}");
+            Console.WriteLine($"=============================");
+            
+            return score;
+        }
+
+        private (string phaseName, int phaseNumber, int phaseDuration) GetMoonPhase(int dayOfMonth)
+        {
+            // Реальная приблизительная длительность фаз Луны в днях
+            // Лунный цикл ~29.5 дней, распределяем по фазам
+            int dayInCycle = ((dayOfMonth - 1) % 29) + 1; // День в лунном цикле (1-29)
+            
+            if (dayInCycle <= 1)
+                return ("New Moon", 1, 1); // Новолуние - 1 день
+            else if (dayInCycle <= 6)
+                return ("Waxing Crescent", 2, 5); // Молодая Луна - 5 дней
+            else if (dayInCycle <= 8)
+                return ("First Quarter", 3, 2); // Первая четверть - 2 дня
+            else if (dayInCycle <= 13)
+                return ("Waxing Gibbous", 4, 5); // Растущая Луна - 5 дней
+            else if (dayInCycle <= 15)
+                return ("Full Moon", 5, 2); // Полнолуние - 2 дня
+            else if (dayInCycle <= 20)
+                return ("Waning Gibbous", 6, 5); // Убывающая Луна - 5 дней
+            else if (dayInCycle <= 22)
+                return ("Last Quarter", 7, 2); // Последняя четверть - 2 дня
+            else
+                return ("Waning Crescent", 8, 7); // Старая Луна - 7 дней
+        }
+        
+        // private double CalculateTemperatureScore(List<int> numbers)
+        // {
+        //     try
+        //     {
+        //         double currentTemperature = GetHistoricalTemperatureFromGismeteo();
+        //         
+        //         int temperatureMultiples = numbers.Count(n => n != 0 && 
+        //             currentTemperature != 0 && 
+        //             Math.Abs(currentTemperature) % Math.Abs(n) == 0);
+        //         
+        //         double undesirableRatio = (double)temperatureMultiples / numbers.Count;
+        //         
+        //         // Для отладки
+        //         Console.WriteLine($"Температура с Gismeteo: {currentTemperature}°C, Кратные: {temperatureMultiples}");
+        //         
+        //         return 1.0 - undesirableRatio;
+        //     }
+        //     catch (Exception ex)
+        //     {
+        //         Console.WriteLine($"Ошибка в температурном критерии: {ex.Message}");
+        //         return CalculateTemperatureScoreFallback(numbers);
+        //     }
+        // }
+        //
+        // // МЕТОД ДЛЯ ПОЛУЧЕНИЯ ТЕМПЕРАТУРЫ С GISMETEO
+        // private double GetHistoricalTemperatureFromGismeteo()
+        // {
+        //     try
+        //     {
+        //         // Кэширование на 6 часов
+        //         if (cachedTemperature.HasValue && 
+        //             DateTime.Now - lastTemperatureUpdate < TimeSpan.FromHours(6))
+        //         {
+        //             return cachedTemperature.Value;
+        //         }
+        //         
+        //         DateTime lastYearDate = DateTime.Now.AddYears(-1);
+        //         
+        //         // URL архива Gismeteo для Москвы
+        //         string url = $"https://www.gismeteo.ru/diary/4368/{lastYearDate.Year}/{lastYearDate.Month}/";
+        //         
+        //         using (HttpClient client = new HttpClient())
+        //         {
+        //             // Устанавливаем заголовки как у браузера
+        //             client.DefaultRequestHeaders.Add("User-Agent", 
+        //                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+        //             client.DefaultRequestHeaders.Add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8");
+        //             client.DefaultRequestHeaders.Add("Accept-Language", "ru-RU,ru;q=0.8,en-US;q=0.5,en;q=0.3");
+        //             
+        //             client.Timeout = TimeSpan.FromSeconds(15);
+        //             
+        //             HttpResponseMessage response = client.GetAsync(url).GetAwaiter().GetResult();
+        //             
+        //             if (response.IsSuccessStatusCode)
+        //             {
+        //                 string html = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+        //                 double temperature = ParseGismeteoTemperature(html, lastYearDate.Day);
+        //                 
+        //                 cachedTemperature = temperature;
+        //                 lastTemperatureUpdate = DateTime.Now;
+        //                 
+        //                 Console.WriteLine($"Успешно получена температура: {temperature}°C");
+        //                 return temperature;
+        //             }
+        //             else
+        //             {
+        //                 throw new Exception($"HTTP error: {response.StatusCode}");
+        //             }
+        //         }
+        //     }
+        //     catch (Exception ex)
+        //     {
+        //         Console.WriteLine($"Ошибка получения температуры с Gismeteo: {ex.Message}");
+        //         return GetHistoricalTemperatureFallback();
+        //     }
+        // }
+        //
+        // // ПАРСИНГ HTML С HTML AGILITY PACK
+        // private double ParseGismeteoTemperature(string html, int targetDay)
+        // {
+        //     var htmlDoc = new HtmlDocument();
+        //     htmlDoc.LoadHtml(html);
+        //     
+        //     // Ищем таблицу с погодой по классу
+        //     var table = htmlDoc.DocumentNode.SelectSingleNode("//table[contains(@class, 'gtable')]");
+        //     
+        //     if (table == null)
+        //     {
+        //         // Пробуем найти любую таблицу
+        //         table = htmlDoc.DocumentNode.SelectSingleNode("//table");
+        //         if (table == null)
+        //         {
+        //             throw new Exception("Таблица с погодой не найдена на странице");
+        //         }
+        //     }
+        //     
+        //     // Ищем все строки таблицы, пропускаем заголовок
+        //     var rows = table.SelectNodes(".//tr[position()>1]");
+        //     
+        //     if (rows == null || rows.Count == 0)
+        //     {
+        //         throw new Exception("Данные о погоде не найдены в таблице");
+        //     }
+        //     
+        //     foreach (var row in rows)
+        //     {
+        //         var cells = row.SelectNodes(".//td|.//th");
+        //         
+        //         if (cells != null && cells.Count >= 2)
+        //         {
+        //             // Первая ячейка - день месяца
+        //             string dayText = CleanText(cells[0].InnerText);
+        //             
+        //             if (int.TryParse(dayText, out int day) && day == targetDay)
+        //             {
+        //                 // Вторая ячейка - дневная температура
+        //                 string tempText = CleanText(cells[1].InnerText);
+        //                 
+        //                 // Обрабатываем различные форматы минуса
+        //                 tempText = tempText.Replace("&minus;", "-")
+        //                                   .Replace("−", "-")
+        //                                   .Replace("–", "-")
+        //                                   .Replace("—", "-")
+        //                                   .Replace(" ", "")
+        //                                   .Replace("\n", "")
+        //                                   .Replace("\t", "")
+        //                                   .Replace("&deg;", "")
+        //                                   .Replace("°", "");
+        //                 
+        //                 if (double.TryParse(tempText, out double temperature))
+        //                 {
+        //                     return temperature;
+        //                 }
+        //                 else
+        //                 {
+        //                     // Пробуем извлечь число из текста
+        //                     var match = System.Text.RegularExpressions.Regex.Match(tempText, @"(-?\d+[,.]?\d*)");
+        //                     if (match.Success)
+        //                     {
+        //                         string numberStr = match.Value.Replace(",", ".");
+        //                         if (double.TryParse(numberStr, out temperature))
+        //                         {
+        //                             return temperature;
+        //                         }
+        //                     }
+        //                 }
+        //                 
+        //                 throw new Exception($"Не удалось распознать температуру: '{tempText}'");
+        //             }
+        //         }
+        //     }
+        //     
+        //     throw new Exception($"Температура для {targetDay} числа не найдена");
+        // }
+        //
+        // // ВСПОМОГАТЕЛЬНЫЙ МЕТОД ДЛЯ ОЧИСТКИ ТЕКСТА
+        // private string CleanText(string text)
+        // {
+        //     if (string.IsNullOrEmpty(text))
+        //         return text;
+        //         
+        //     return System.Text.RegularExpressions.Regex.Replace(text, @"\s+", " ").Trim();
+        // }
+        //
+        // // FALLBACK МЕТОДЫ
+        // private double CalculateTemperatureScoreFallback(List<int> numbers)
+        // {
+        //     double fallbackTemperature = GetHistoricalTemperatureFallback();
+        //     
+        //     int temperatureMultiples = numbers.Count(n => n != 0 && 
+        //         fallbackTemperature != 0 && 
+        //         Math.Abs(fallbackTemperature) % Math.Abs(n) == 0);
+        //     
+        //     double undesirableRatio = (double)temperatureMultiples / numbers.Count;
+        //     return 1.0 - undesirableRatio;
+        // }
+        //
+        // private double GetHistoricalTemperatureFallback()
+        // {
+        //     DateTime lastYearDate = DateTime.Now.AddYears(-1);
+        //     int month = lastYearDate.Month;
+        //     
+        //     // Средние температуры для Москвы по месяцам
+        //     double baseTemp = month switch
+        //     {
+        //         1 => -8.0, 2 => -7.5, 3 => -2.0, 4 => 6.5,
+        //         5 => 13.5, 6 => 17.0, 7 => 19.0, 8 => 17.5,
+        //         9 => 11.5, 10 => 5.0, 11 => -1.0, 12 => -5.5,
+        //         _ => 10.0
+        //     };
+        //     
+        //     // Случайное отклонение для реалистичности
+        //     Random rnd = new Random();
+        //     double randomDeviation = (rnd.NextDouble() - 0.5) * 4;
+        //     
+        //     return baseTemp + randomDeviation;
+        // }
     }
 }

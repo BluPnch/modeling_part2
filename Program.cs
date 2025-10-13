@@ -10,7 +10,7 @@ namespace RandomNumberLab
         {
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
-            Application.Run(new Lab1());
+            Application.Run(new Lab1.Lab1());
         }
     }
 }
