@@ -583,8 +583,6 @@ namespace Lab1
         }
 
         // Критерий Луна
-        // Критерий Луна
-        // Критерий Луна - ИСПРАВЛЕННАЯ ВЕРСИЯ
         private double CalculateMoonPhaseScore(List<int> numbers)
         {
             int dayOfMonth = DateTime.Now.Day;
