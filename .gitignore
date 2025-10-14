@@ -1,3 +1,10 @@
-﻿/obj
-/bin
+﻿/lab_1/obj
+/lab_1/bin
+/lab_1/.idea
+/lab_2/obj
+/lab_2/bin
+/lab_2/.idea
+*.aux
+*.log
+*.out
 /.idea

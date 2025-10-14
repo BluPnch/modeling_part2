@@ -14,6 +14,8 @@ namespace StateSystemAnalyzer
         private Label lblSum;
         private RadioButton radioManual;
         private RadioButton radioPredefined;
+        private Button btnShowGraph;
+        private PictureBox pictureBoxGraph; 
         
         public Lab2()
         {
@@ -24,7 +26,8 @@ namespace StateSystemAnalyzer
         private void InitializeComponent()
         {
             this.Text = "Анализ времени пребывания в состояниях системы";
-            this.Size = new Size(900, 600);
+            // this.Size = new Size(900, 870);
+            this.Size = new Size(900, 840);
             this.StartPosition = FormStartPosition.CenterScreen;
 
             // Радиокнопки для выбора режима
@@ -49,14 +52,14 @@ namespace StateSystemAnalyzer
             };
             radioManual.CheckedChanged += (s, e) => 
             { 
-                if (radioManual.Checked) InitializeMatrix(3); 
+                if (radioManual.Checked) InitializeMatrix(5); 
             };
             this.Controls.Add(radioManual);
 
             // Поле для выбора размера матрицы (только для ручного режима)
             var lblSize = new Label
             {
-                Text = "Размер матрицы (2-5):",
+                Text = "Размер матрицы (2-10):",
                 Location = new Point(20, 45),
                 Size = new Size(120, 20)
             };
@@ -65,8 +68,8 @@ namespace StateSystemAnalyzer
             nudSize = new NumericUpDown
             {
                 Minimum = 2,
-                Maximum = 5,
-                Value = 3,
+                Maximum = 10,
+                Value = 5,
                 Location = new Point(150, 45),
                 Size = new Size(50, 20),
                 Enabled = false
@@ -95,12 +98,33 @@ namespace StateSystemAnalyzer
             };
             btnCalculate.Click += CalculateResults;
             this.Controls.Add(btnCalculate);
+            
+            // Кнопка для показа графа
+            btnShowGraph = new Button
+            {
+                Text = "Показать граф",
+                Location = new Point(130, 390),
+                Size = new Size(100, 30)
+            };
+            btnShowGraph.Click += ShowGraph;
+            this.Controls.Add(btnShowGraph);
+
+            // PictureBox для отображения графа
+            pictureBoxGraph = new PictureBox
+            {
+                Location = new Point(20, 420),
+                Size = new Size(850, 350),
+                Visible = false,
+                BorderStyle = BorderStyle.FixedSingle,
+                SizeMode = PictureBoxSizeMode.Zoom
+            };
+            this.Controls.Add(pictureBoxGraph);
 
             // Поле для результатов
             txtResults = new TextBox
             {
                 Location = new Point(550, 80),
-                Size = new Size(300, 400),
+                Size = new Size(300, 300),
                 Multiline = true,
                 ScrollBars = ScrollBars.Vertical,
                 Font = new Font("Consolas", 10),
@@ -162,8 +186,8 @@ namespace StateSystemAnalyzer
             // Убираем обработчик редактирования
             dataGridView.CellEndEdit -= DataGridView_CellEndEdit;
         }
-
-                private void InitializeMatrix(int size)
+        
+        private void InitializeMatrix(int size)
         {
             dataGridView.Columns.Clear();
             dataGridView.Rows.Clear();
@@ -245,34 +269,32 @@ namespace StateSystemAnalyzer
                     }
                 }
 
-                // Находим установившиеся вероятности
+                // Находим установившиеся вероятности (предельные вероятности состояний)
                 double[] steadyStateProbabilities = FindSteadyStateProbabilities(intensityMatrix);
 
-                // Вывод результатов
-                txtResults.Text = "Результаты:\r\n";
-                txtResults.Text += "Состояние\tВремя\t\tВероятность\r\n";
-                txtResults.Text += "----------------------------------------\r\n";
+                // Вывод результатов согласно условию лабораторной работы
+                txtResults.Text = "Предельные вероятности состояний:\r\n";
+                txtResults.Text += "(установившийся режим)\r\n";
+                txtResults.Text += "-----------------------------------\r\n";
+                txtResults.Text += "Состояние\tВероятность P\u1d62\r\n";
+                txtResults.Text += "-----------------------------------\r\n";
 
                 double sumProbabilities = 0;
 
                 for (int i = 0; i < size; i++)
                 {
-                    // Время пребывания = 1 / сумма интенсивностей выхода из состояния
-                    double exitRate = 0;
-                    for (int j = 0; j < size; j++)
-                    {
-                        exitRate += intensityMatrix[i, j];
-                    }
-
-                    double timeInState = (exitRate > 0) ? 1.0 / exitRate : 0;
-
-                    txtResults.Text += $"S{i + 1}\t\t{timeInState:F4}\t\t{steadyStateProbabilities[i]:F4}\r\n";
+                    txtResults.Text += $"S{i + 1}\t\t{steadyStateProbabilities[i]:F6}\r\n";
                     sumProbabilities += steadyStateProbabilities[i];
                 }
 
-                txtResults.Text += "----------------------------------------\r\n";
-                lblSum.Text = $"Сумма вероятностей: {sumProbabilities:F6}";
+                txtResults.Text += "-----------------------------------\r\n";
+                lblSum.Text = $"Сумма вероятностей: {sumProbabilities:F8}";
                 lblSum.ForeColor = Math.Abs(sumProbabilities - 1.0) < 0.0001 ? Color.Green : Color.Red;
+
+                // Дополнительная информация по условию лабы
+                txtResults.Text += $"\r\nСреднее относительное время пребывания\r\n";
+                txtResults.Text += $"в каждом состоянии равно соответствующей\r\n"; 
+                txtResults.Text += $"вероятности P\u1d62 (в установившемся режиме)\r\n";
 
             }
             catch (Exception ex)
@@ -280,6 +302,158 @@ namespace StateSystemAnalyzer
                 MessageBox.Show($"Ошибка при расчетах: {ex.Message}", "Ошибка", 
                               MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
+        }
+        
+                private void ShowGraph(object sender, EventArgs e)
+        {
+            try
+            {
+                int size = (int)nudSize.Value;
+                double[,] intensityMatrix = new double[size, size];
+
+                // Чтение данных из DataGridView
+                for (int i = 0; i < size; i++)
+                {
+                    for (int j = 0; j < size; j++)
+                    {
+                        if (double.TryParse(dataGridView.Rows[i].Cells[j].Value?.ToString(), out double value))
+                        {
+                            intensityMatrix[i, j] = value;
+                        }
+                        else
+                        {
+                            intensityMatrix[i, j] = 0;
+                        }
+                    }
+                }
+
+                // Создаем изображение графа
+                Bitmap graphImage = DrawStateGraph(intensityMatrix);
+                pictureBoxGraph.Image = graphImage;
+                pictureBoxGraph.Visible = true;
+
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка при построении графа: {ex.Message}", "Ошибка", 
+                              MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private Bitmap DrawStateGraph(double[,] intensityMatrix)
+        {
+            int size = intensityMatrix.GetLength(0);
+            int width = 500;
+            int height = 300;
+            Bitmap bitmap = new Bitmap(width, height);
+            using (Graphics g = Graphics.FromImage(bitmap))
+            {
+                g.Clear(Color.White);
+                g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+
+                // Рассчитываем позиции состояний по кругу
+                Point[] positions = new Point[size];
+                int centerX = width / 2;
+                int centerY = height / 2;
+                int radius = Math.Min(width, height) / 3;
+
+                for (int i = 0; i < size; i++)
+                {
+                    double angle = 2 * Math.PI * i / size;
+                    positions[i] = new Point(
+                        centerX + (int)(radius * Math.Cos(angle)),
+                        centerY + (int)(radius * Math.Sin(angle))
+                    );
+                }
+
+                // Рисуем стрелки переходов
+                Pen arrowPen = new Pen(Color.Blue, 2);
+                Font labelFont = new Font("Arial", 8);
+                Brush labelBrush = Brushes.Red;
+
+                for (int i = 0; i < size; i++)
+                {
+                    for (int j = 0; j < size; j++)
+                    {
+                        if (intensityMatrix[i, j] > 0 && i != j)
+                        {
+                            DrawArrow(g, arrowPen, positions[i], positions[j], intensityMatrix[i, j].ToString("F1"), labelFont, labelBrush);
+                        }
+                    }
+                }
+
+                // Рисуем состояния (узлы графа)
+                for (int i = 0; i < size; i++)
+                {
+                    g.FillEllipse(Brushes.LightBlue, positions[i].X - 20, positions[i].Y - 20, 40, 40);
+                    g.DrawEllipse(Pens.Black, positions[i].X - 20, positions[i].Y - 20, 40, 40);
+                    
+                    // Номер состояния
+                    StringFormat format = new StringFormat();
+                    format.Alignment = StringAlignment.Center;
+                    format.LineAlignment = StringAlignment.Center;
+                    
+                    g.DrawString($"S{i + 1}", new Font("Arial", 10, FontStyle.Bold), 
+                                Brushes.Black, 
+                                new RectangleF(positions[i].X - 20, positions[i].Y - 20, 40, 40), 
+                                format);
+                }
+
+                // Заголовок
+                g.DrawString("Граф состояний системы", new Font("Arial", 12, FontStyle.Bold), 
+                           Brushes.DarkBlue, new PointF(10, 10));
+            }
+
+            return bitmap;
+        }
+
+        private void DrawArrow(Graphics g, Pen pen, Point from, Point to, string label, Font font, Brush brush)
+        {
+            // Вектор направления
+            double dx = to.X - from.X;
+            double dy = to.Y - from.Y;
+            double length = Math.Sqrt(dx * dx + dy * dy);
+            
+            // Нормализуем вектор
+            dx /= length;
+            dy /= length;
+            
+            // Укорачиваем линию чтобы стрелка не залезала на круг
+            int circleRadius = 20;
+            Point start = new Point(from.X + (int)(dx * circleRadius), from.Y + (int)(dy * circleRadius));
+            Point end = new Point(to.X - (int)(dx * circleRadius), to.Y - (int)(dy * circleRadius));
+            
+            // Рисуем линию
+            g.DrawLine(pen, start, end);
+            
+            // Рисуем стрелку
+            double arrowSize = 10;
+            double angle = Math.Atan2(dy, dx);
+            
+            Point[] arrowPoints = new Point[3];
+            arrowPoints[0] = end;
+            arrowPoints[1] = new Point(
+                end.X - (int)(arrowSize * Math.Cos(angle - Math.PI / 6)),
+                end.Y - (int)(arrowSize * Math.Sin(angle - Math.PI / 6))
+            );
+            arrowPoints[2] = new Point(
+                end.X - (int)(arrowSize * Math.Cos(angle + Math.PI / 6)),
+                end.Y - (int)(arrowSize * Math.Sin(angle + Math.PI / 6))
+            );
+            
+            g.FillPolygon(Brushes.Blue, arrowPoints);
+            
+            // Подпись интенсивности (посередине стрелки)
+            Point labelPos = new Point(
+                (start.X + end.X) / 2,
+                (start.Y + end.Y) / 2
+            );
+            
+            // Смещаем подпись чтобы не накладывалась на стрелку
+            labelPos.X += (int)(dy * 15);
+            labelPos.Y -= (int)(dx * 15);
+            
+            g.DrawString(label, font, brush, labelPos);
         }
 
         // Метод для нахождения установившихся вероятностей
