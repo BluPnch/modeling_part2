@@ -1,6 +1,9 @@
-﻿using lab_3.Interfaces;
+﻿using System;
+using System.Collections.Generic;
+using lab_4.Interfaces;
 
-namespace lab_3
+
+namespace lab_4.Models
 {
     public class SmoSystem
     {

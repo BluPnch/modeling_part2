@@ -3,18 +3,8 @@
     <PropertyGroup>
         <OutputType>WinExe</OutputType>
         <TargetFramework>net8.0-windows</TargetFramework>
-        <UseWindowsForms>true</UseWindowsForms>
-        <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        <UseWPF>true</UseWPF>
     </PropertyGroup>
-
-    <ItemGroup>
-        <PackageReference Include="MathNet.Numerics" Version="5.0.0" />
-        <PackageReference Include="System.Drawing.Common" Version="7.0.0" />
-    </ItemGroup>
-
-    <ItemGroup>
-      <Content Include="src\SMO.csproj" />
-    </ItemGroup>
 
 </Project>

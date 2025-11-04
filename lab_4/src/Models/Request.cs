@@ -1,7 +1,7 @@
-﻿using lab_3.Interfaces;
+﻿using lab_4.Interfaces;
 
 
-namespace lab_3
+namespace lab_4.Models
 {
     public class Request : IRequest
     {

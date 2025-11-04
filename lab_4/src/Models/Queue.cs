@@ -1,7 +1,8 @@
-﻿using lab_3.Interfaces;
+﻿using System.Collections.Generic;
+using lab_4.Interfaces;
 
 
-namespace lab_3
+namespace lab_4.Models
 {
     public class Queue : IQueue
     {
@@ -10,7 +11,6 @@ namespace lab_3
         public int Count => _queue.Count;
         public int MaxSize { get; set; }
         public int LostRequests { get; private set; }
-
         public bool IsFull => Count >= MaxSize;
 
         public Queue(int maxSize)

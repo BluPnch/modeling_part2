@@ -1,4 +1,5 @@
-﻿namespace lab_3.Interfaces
+﻿
+namespace lab_4.Interfaces
 {
     public interface IRequestGenerator
     {
