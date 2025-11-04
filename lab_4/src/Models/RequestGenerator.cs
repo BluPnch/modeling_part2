@@ -1,17 +1,17 @@
 ﻿using System;
 using lab_4.Interfaces;
-
+using lab_4.Distributions;
 
 namespace lab_4.Models
 {
     public class RequestGenerator : IRequestGenerator
     {
         private readonly Random _random;
-        private readonly double _meanGenerationTime;
+        public IDistribution Distribution { get; set; }
 
-        public RequestGenerator(double meanGenerationTime, int seed = 0)
+        public RequestGenerator(IDistribution distribution, int seed = 0)
         {
-            _meanGenerationTime = meanGenerationTime;
+            Distribution = distribution;
             _random = seed == 0 ? new Random() : new Random(seed);
         }
 
@@ -22,8 +22,8 @@ namespace lab_4.Models
 
         public double GetNextGenerationTime()
         {
-            // Экспоненциальное распределение для времени между заявками
-            return -_meanGenerationTime * Math.Log(1 - _random.NextDouble());
+            // Используем выбранное распределение для генерации времени
+            return Distribution.GenerateSample();
         }
     }
 }

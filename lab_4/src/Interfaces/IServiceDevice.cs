@@ -1,4 +1,6 @@
-﻿namespace lab_4.Interfaces
+﻿using lab_4.Distributions;
+
+namespace lab_4.Interfaces
 {
     public interface IServiceDevice
     {
@@ -7,5 +9,6 @@
         double ServiceCompletionTime { get; } 
         void StartService(IRequest request, double currentTime);
         IRequest? CompleteService(double currentTime);
+        IDistribution Distribution { get; set; }
     }
 }

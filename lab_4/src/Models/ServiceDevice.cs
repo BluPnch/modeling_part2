@@ -1,5 +1,5 @@
 ﻿using lab_4.Interfaces;
-
+using lab_4.Distributions;
 
 namespace lab_4.Models
 {
@@ -7,20 +7,23 @@ namespace lab_4.Models
     {
         private IRequest? _currentRequest;
         private double _serviceStartTime;
+        public IDistribution Distribution { get; set; }
 
         public bool IsBusy => _currentRequest != null;
         public double ServiceTime { get; set; }
         public double ServiceCompletionTime { get; private set; }
 
-        public ServiceDevice(double serviceTime)
+        public ServiceDevice(IDistribution distribution)
         {
-            ServiceTime = serviceTime;
+            Distribution = distribution;
+            ServiceTime = Distribution.GenerateSample();
         }
 
         public void StartService(IRequest request, double currentTime)
         {
             _currentRequest = request;
             _serviceStartTime = currentTime;
+            ServiceTime = Distribution.GenerateSample(); // Генерируем новое время обслуживания
             ServiceCompletionTime = currentTime + ServiceTime;
         }
 

@@ -4,6 +4,8 @@ using System.Windows.Controls;
 using System.Threading.Tasks;
 using lab_4.Interfaces;
 using lab_4.Models;
+using lab_4.Distributions;
+using lab_4.Helpers;
 
 namespace lab_4
 {
@@ -16,8 +18,212 @@ namespace lab_4
 
         public MainWindow()
         {
-            InitializeComponent();
-            SetDefaultValues();
+            try
+            {
+                InitializeComponent();
+                SetDefaultValues();
+            
+                // Инициализируем поля значениями по умолчанию
+                var generatorDistribution = new ExponentialDistribution(0.5);
+                var serviceDistribution = new ExponentialDistribution(0.666);
+            
+                _generator = new RequestGenerator(generatorDistribution);
+                _queue = new Queue(5);
+                _serviceDevice = new ServiceDevice(serviceDistribution);
+                _smoSystem = new SmoSystem(_generator, _queue, _serviceDevice);
+            
+                // Подписываемся на событие загрузки
+                this.Loaded += MainWindow_Loaded;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка инициализации окна: {ex.Message}", "Ошибка", 
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+        
+        private void MainWindow_Loaded(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (cmbGeneratorDistribution != null && cmbServiceDistribution != null)
+                {
+                    UpdateDistributionLabels();
+                    InitializeSmoSystem();
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка загрузки окна: {ex.Message}", "Ошибка", 
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+        
+        private IDistribution CreateGeneratorDistribution()
+        {
+            try
+            {
+                if (cmbGeneratorDistribution?.SelectedItem == null)
+                    return new ExponentialDistribution(0.5);
+
+                var selectedItem = cmbGeneratorDistribution.SelectedItem as ComboBoxItem;
+                string distributionType = selectedItem?.Tag as string ?? "Exponential";
+                
+                if (string.IsNullOrEmpty(txtGeneratorParam1?.Text))
+                    return new ExponentialDistribution(0.5);
+
+                double param1 = NumberParser.ParseDouble(txtGeneratorParam1.Text);
+                double param2 = string.IsNullOrEmpty(txtGeneratorParam2?.Text) ? 0.5 : NumberParser.ParseDouble(txtGeneratorParam2.Text);
+
+                return distributionType switch
+                {
+                    "Uniform" => new UniformDistribution(0, param1 * 2),
+                    "Exponential" => new ExponentialDistribution(1.0 / param1),
+                    "Normal" => new NormalDistribution(param1, param2),
+                    "Poisson" => new PoissonDistribution(param1),
+                    "Erlang" => new ErlangDistribution((int)param2, (int)param2 / param1),
+                    _ => new ExponentialDistribution(1.0 / param1)
+                };
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка в параметрах генератора: {ex.Message}", "Ошибка", 
+                              MessageBoxButton.OK, MessageBoxImage.Error);
+                return new ExponentialDistribution(0.5);
+            }
+        }
+
+        private IDistribution CreateServiceDistribution()
+        {
+            try
+            {
+                if (cmbServiceDistribution == null || cmbServiceDistribution.SelectedItem == null)
+                    return new ExponentialDistribution(0.666);
+
+                var selectedItem = cmbServiceDistribution.SelectedItem as ComboBoxItem;
+                string distributionType = selectedItem?.Tag as string ?? "Exponential";
+                
+                if (string.IsNullOrEmpty(txtServiceParam1?.Text))
+                    return new ExponentialDistribution(0.666);
+
+                double param1 = NumberParser.ParseDouble(txtServiceParam1.Text);
+                double param2 = string.IsNullOrEmpty(txtServiceParam2?.Text) ? 0.3 : NumberParser.ParseDouble(txtServiceParam2.Text);
+
+                return distributionType switch
+                {
+                    "Uniform" => new UniformDistribution(0, param1 * 2),
+                    "Exponential" => new ExponentialDistribution(1.0 / param1),
+                    "Normal" => new NormalDistribution(param1, param2),
+                    "Poisson" => new PoissonDistribution(param1),
+                    "Erlang" => new ErlangDistribution((int)param2, (int)param2 / param1),
+                    _ => new ExponentialDistribution(1.0 / param1)
+                };
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка в параметрах обслуживания: {ex.Message}", "Ошибка", 
+                              MessageBoxButton.OK, MessageBoxImage.Error);
+                return new ExponentialDistribution(0.666);
+            }
+        }
+
+        private void UpdateDistributionLabels()
+        {
+            UpdateGeneratorDistributionLabels();
+            UpdateServiceDistributionLabels();
+        }
+        
+        private void UpdateGeneratorDistributionLabels()
+        {
+            var selectedItem = cmbGeneratorDistribution.SelectedItem as ComboBoxItem;
+            string distributionType = selectedItem?.Tag as string ?? "Exponential";
+
+            switch (distributionType)
+            {
+                case "Uniform":
+                    txtGeneratorParam1Label.Text = "Максимум:";
+                    txtGeneratorParam2Label.Visibility = Visibility.Collapsed;
+                    txtGeneratorParam2.Visibility = Visibility.Collapsed;
+                    txtGeneratorParam1.Text = "4.0"; // 2 * mean
+                    break;
+                case "Exponential":
+                    txtGeneratorParam1Label.Text = "Среднее:";
+                    txtGeneratorParam2Label.Visibility = Visibility.Collapsed;
+                    txtGeneratorParam2.Visibility = Visibility.Collapsed;
+                    txtGeneratorParam1.Text = "2.0";
+                    break;
+                case "Normal":
+                    txtGeneratorParam1Label.Text = "Среднее:";
+                    txtGeneratorParam2Label.Text = "Станд. отклонение:";
+                    txtGeneratorParam2Label.Visibility = Visibility.Visible;
+                    txtGeneratorParam2.Visibility = Visibility.Visible;
+                    txtGeneratorParam1.Text = "2.0";
+                    txtGeneratorParam2.Text = "0.5";
+                    break;
+                case "Poisson":
+                    txtGeneratorParam1Label.Text = "Лямбда:";
+                    txtGeneratorParam2Label.Visibility = Visibility.Collapsed;
+                    txtGeneratorParam2.Visibility = Visibility.Collapsed;
+                    txtGeneratorParam1.Text = "2.0";
+                    break;
+                case "Erlang":
+                    txtGeneratorParam1Label.Text = "Среднее:";
+                    txtGeneratorParam2Label.Text = "Форма (k):";
+                    txtGeneratorParam2Label.Visibility = Visibility.Visible;
+                    txtGeneratorParam2.Visibility = Visibility.Visible;
+                    txtGeneratorParam1.Text = "2.0";
+                    txtGeneratorParam2.Text = "3";
+                    break;
+            }
+        }
+
+        private void UpdateServiceDistributionLabels()
+        {
+            var selectedItem = cmbServiceDistribution.SelectedItem as ComboBoxItem;
+            string distributionType = selectedItem?.Tag as string ?? "Exponential";
+
+            switch (distributionType)
+            {
+                case "Uniform":
+                    txtServiceParam1Label.Text = "Максимум:";
+                    txtServiceParam2Label.Visibility = Visibility.Collapsed;
+                    txtServiceParam2.Visibility = Visibility.Collapsed;
+                    txtServiceParam1.Text = "3,0"; // 2 * mean
+                    break;
+                case "Exponential":
+                    txtServiceParam1Label.Text = "Среднее:";
+                    txtServiceParam2Label.Visibility = Visibility.Collapsed;
+                    txtServiceParam2.Visibility = Visibility.Collapsed;
+                    txtServiceParam1.Text = "1,5";
+                    break;
+                case "Normal":
+                    txtServiceParam1Label.Text = "Среднее:";
+                    txtServiceParam2Label.Text = "Станд. отклонение:";
+                    txtServiceParam2Label.Visibility = Visibility.Visible;
+                    txtServiceParam2.Visibility = Visibility.Visible;
+                    txtServiceParam1.Text = "1,5";
+                    txtServiceParam2.Text = "0,3";
+                    break;
+                case "Poisson":
+                    txtServiceParam1Label.Text = "Лямбда:";
+                    txtServiceParam2Label.Visibility = Visibility.Collapsed;
+                    txtServiceParam2.Visibility = Visibility.Collapsed;
+                    txtServiceParam1.Text = "1,5";
+                    break;
+                case "Erlang":
+                    txtServiceParam1Label.Text = "Среднее:";
+                    txtServiceParam2Label.Text = "Форма (k):";
+                    txtServiceParam2Label.Visibility = Visibility.Visible;
+                    txtServiceParam2.Visibility = Visibility.Visible;
+                    txtServiceParam1.Text = "1,5";
+                    txtServiceParam2.Text = "2";
+                    break;
+            }
+        }
+        
+        private void Distribution_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            UpdateDistributionLabels();
             InitializeSmoSystem();
         }
 
@@ -25,72 +231,44 @@ namespace lab_4
         {
             try
             {
-                if (string.IsNullOrWhiteSpace(txtMeanGenerationTime.Text) ||
-                    string.IsNullOrWhiteSpace(txtServiceTime.Text) || 
-                    string.IsNullOrWhiteSpace(txtQueueSize.Text))
+                if (txtQueueSize == null) return;
+
+                int queueSize = 5;
+                if (!string.IsNullOrEmpty(txtQueueSize.Text))
                 {
-                    txtMeanGenerationTime.Text = "2,0";
-                    txtServiceTime.Text = "1,5";
-                    txtQueueSize.Text = "5";
+                    queueSize = NumberParser.ParseInt(txtQueueSize.Text);
                 }
 
-                double meanGenerationTime = double.Parse(txtMeanGenerationTime.Text);
-                double serviceTime = double.Parse(txtServiceTime.Text);
-                int queueSize = int.Parse(txtQueueSize.Text);
+                var generatorDistribution = CreateGeneratorDistribution();
+                var serviceDistribution = CreateServiceDistribution();
 
-                // Проверка на корректность значений
-                if (meanGenerationTime <= 0 || serviceTime <= 0 || queueSize <= 0)
-                {
-                    throw new ArgumentException("Все параметры должны быть положительными числами");
-                }
-
-                _generator = new RequestGenerator(meanGenerationTime);
+                _generator = new RequestGenerator(generatorDistribution);
                 _queue = new Queue(queueSize);
-                _serviceDevice = new ServiceDevice(serviceTime);
+                _serviceDevice = new ServiceDevice(serviceDistribution);
                 _smoSystem = new SmoSystem(_generator, _queue, _serviceDevice);
 
-                txtStatus.Text = "Система инициализирована";
-            }
-            catch (FormatException)
-            {
-                MessageBox.Show("Ошибка формата: введите числовые значения", "Ошибка", 
-                              MessageBoxButton.OK, MessageBoxImage.Error);
-                // Установка значений по умолчанию
-                SetDefaultValues();
+                txtStatus.Text = $"Система инициализирована. Генератор: {generatorDistribution.Name}, Обслуживание: {serviceDistribution.Name}";
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Ошибка инициализации: {ex.Message}", "Ошибка", 
-                              MessageBoxButton.OK, MessageBoxImage.Error);
-                SetDefaultValues();
+                MessageBox.Show($"Ошибка инициализации системы: {ex.Message}", "Ошибка", 
+                    MessageBoxButton.OK, MessageBoxImage.Error);
             }
-        }
-
-        private void SetDefaultValues()
-        {
-            txtMeanGenerationTime.Text = "2,0";
-            txtServiceTime.Text = "1,5";
-            txtQueueSize.Text = "5";
-            txtSimulationTime.Text = "50,0";
-            
-            _generator = new RequestGenerator(2.0);
-            _queue = new Queue(5);
-            _serviceDevice = new ServiceDevice(1.5);
-            _smoSystem = new SmoSystem(_generator, _queue, _serviceDevice);
         }
 
         private void UpdateParameters()
         {
             try
             {
-                double meanGenerationTime = double.Parse(txtMeanGenerationTime.Text);
-                double serviceTime = double.Parse(txtServiceTime.Text);
-                int queueSize = int.Parse(txtQueueSize.Text);
+                int queueSize = NumberParser.ParseInt(txtQueueSize.Text);
 
-                _generator = new RequestGenerator(meanGenerationTime);
+                var generatorDistribution = CreateGeneratorDistribution();
+                var serviceDistribution = CreateServiceDistribution();
+
+                _generator = new RequestGenerator(generatorDistribution);
                 _queue = new Queue(queueSize);
-                _serviceDevice = new ServiceDevice(serviceTime);
-                _smoSystem = new SmoSystem(_generator, _queue, _serviceDevice); // ДОБАВЬТЕ ЭТУ СТРОЧКУ
+                _serviceDevice = new ServiceDevice(serviceDistribution);
+                _smoSystem = new SmoSystem(_generator, _queue, _serviceDevice);
             }
             catch (Exception ex)
             {
@@ -99,15 +277,29 @@ namespace lab_4
             }
         }
 
+        private void SetDefaultValues()
+        {
+            txtMeanGenerationTime.Text = "2.0";
+            txtServiceTime.Text = "1.5";
+            txtQueueSize.Text = "5";
+            txtSimulationTime.Text = "50.0";
+    
+            txtGeneratorParam1.Text = "2.0";
+            txtGeneratorParam2.Text = "0.5";
+            txtServiceParam1.Text = "1.5";
+            txtServiceParam2.Text = "0.3";
+        }
+
+        
         private async void BtnStepByStep_Click(object sender, RoutedEventArgs e)
         {
             await RunSimulationAsync(async () =>
             {
                 double timeStep = 0.1;
-                double simulationTime = double.Parse(txtSimulationTime.Text);
-                
+                double simulationTime = NumberParser.ParseDouble(txtSimulationTime.Text);
+        
                 await Task.Run(() => _smoSystem.StepByStep(timeStep, simulationTime));
-                
+        
                 Dispatcher.Invoke(() =>
                 {
                     DisplayResults();
@@ -120,10 +312,10 @@ namespace lab_4
         {
             await RunSimulationAsync(async () =>
             {
-                double simulationTime = double.Parse(txtSimulationTime.Text);
-                
+                double simulationTime = NumberParser.ParseDouble(txtSimulationTime.Text);
+        
                 await Task.Run(() => _smoSystem.EventBased(simulationTime));
-                
+        
                 Dispatcher.Invoke(() =>
                 {
                     DisplayResults();
@@ -136,12 +328,12 @@ namespace lab_4
         {
             await RunSimulationAsync(async () =>
             {
-                double meanGenerationTime = double.Parse(txtMeanGenerationTime.Text);
-                double serviceTime = double.Parse(txtServiceTime.Text);
-                double simulationTime = double.Parse(txtSimulationTime.Text);
-                
+                double simulationTime = NumberParser.ParseDouble(txtSimulationTime.Text);
+                double meanGenerationTime = NumberParser.ParseDouble(txtMeanGenerationTime.Text);
+                double serviceTime = NumberParser.ParseDouble(txtServiceTime.Text);
+
                 await Task.Run(() => _smoSystem.FindOptimalQueueSize(simulationTime, meanGenerationTime, serviceTime));
-                
+        
                 Dispatcher.Invoke(() =>
                 {
                     DisplayOptimalQueueResults();

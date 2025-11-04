@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using lab_4.Interfaces;
+using lab_4.Distributions;
 
 
 namespace lab_4.Models
@@ -88,7 +89,6 @@ namespace lab_4.Models
 
             while (CurrentTime <= simulationTime)
             {
-                // Определяем следующее событие
                 double nextEventTime = Math.Min(nextGenerationTime, nextServiceCompletionTime);
 
                 if (nextEventTime > simulationTime) break;
@@ -111,7 +111,7 @@ namespace lab_4.Models
                 // Обработка завершения обслуживания
                 if (CurrentTime == nextServiceCompletionTime)
                 {
-                    var completedRequest = _serviceDevice.CompleteService(CurrentTime);
+                    var completedRequest = _serviceDevice?.CompleteService(CurrentTime);
                     if (completedRequest != null)
                     {
                         ServedRequests++;
@@ -120,33 +120,72 @@ namespace lab_4.Models
                     nextServiceCompletionTime = double.MaxValue;
                 }
 
-                // Начало нового обслуживания
-                if (!_serviceDevice.IsBusy && _queue.Count > 0)
+                // Начало нового обслуживания (с проверкой на null)
+                if (_serviceDevice != null && !_serviceDevice.IsBusy && _queue.Count > 0)
                 {
                     var request = _queue.Dequeue();
-                    if (request != null)
+                    if (request != null && _serviceDevice != null)
                     {
                         _serviceDevice.StartService(request, CurrentTime);
-                        nextServiceCompletionTime = _serviceDevice.ServiceCompletionTime; // Теперь это работает
+                        nextServiceCompletionTime = _serviceDevice.ServiceCompletionTime;
                         Log.Add($"[{CurrentTime:F2}] Started service: {request}");
                     }
                 }
             }
         }
-
-        public void FindOptimalQueueSize(double simulationTime, double meanGenerationTime, double serviceTime)
+        
+        // Перегруженный метод для обратной совместимости
+        public void FindOptimalQueueSize(double simulationTime, IDistribution generatorDistribution, IDistribution serviceDistribution)
         {
             Log.Add("=== Поиск оптимального размера очереди ===");
-            
+    
             int optimalSize = 0;
             int minLostRequests = int.MaxValue;
 
             for (int queueSize = 1; queueSize <= 20; queueSize++)
             {
-                // Создаем тестовые компоненты с правильными интерфейсами
-                var testQueue = new Queue(queueSize); // Убедитесь, что Queue реализует IQueue
-                var testGenerator = new RequestGenerator(meanGenerationTime); // Убедитесь, что реализует IRequestGenerator
-                var testDevice = new ServiceDevice(serviceTime); // Убедитесь, что реализует IServiceDevice
+                var testQueue = new Queue(queueSize);
+                var testGenerator = new RequestGenerator(generatorDistribution);
+                var testDevice = new ServiceDevice(serviceDistribution);
+                var testSmo = new SmoSystem(testGenerator, testQueue, testDevice);
+
+                testSmo.EventBased(simulationTime);
+
+                Log.Add($"Размер очереди: {queueSize}, Потеряно заявок: {testQueue.LostRequests}");
+
+                if (testQueue.LostRequests < minLostRequests)
+                {
+                    minLostRequests = testQueue.LostRequests;
+                    optimalSize = queueSize;
+                }
+
+                if (testQueue.LostRequests == 0)
+                {
+                    break;
+                }
+            }
+
+            Log.Add($"Оптимальный размер очереди: {optimalSize} (потерь: {minLostRequests})");
+        }
+
+        public void FindOptimalQueueSize(double simulationTime, double meanGenerationTime, double serviceTime)
+        {
+            Log.Add("=== Поиск оптимального размера очереди ===");
+    
+            int optimalSize = 0;
+            int minLostRequests = int.MaxValue;
+
+            for (int queueSize = 1; queueSize <= 20; queueSize++)
+            {
+                // Создаем тестовые компоненты с распределениями
+                var testQueue = new Queue(queueSize);
+        
+                // Используем экспоненциальное распределение для тестирования
+                var generatorDistribution = new ExponentialDistribution(1.0 / meanGenerationTime);
+                var serviceDistribution = new ExponentialDistribution(1.0 / serviceTime);
+        
+                var testGenerator = new RequestGenerator(generatorDistribution);
+                var testDevice = new ServiceDevice(serviceDistribution);
                 var testSmo = new SmoSystem(testGenerator, testQueue, testDevice);
 
                 testSmo.EventBased(simulationTime);
