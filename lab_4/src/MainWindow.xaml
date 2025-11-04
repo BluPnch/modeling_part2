@@ -2,67 +2,103 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Система Массового Обслуживания (СМО)" 
-        Height="700" Width="1000"
+        Height="600" Width="900"
         WindowStartupLocation="CenterScreen">
-    <Grid Margin="10">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
+    
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="10">
+            
+            <!-- Основные параметры -->
+            <GroupBox Header="Основные параметры" Margin="0,0,0,10">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <StackPanel Grid.Column="0" Margin="5">
+                        <TextBlock Text="Размер очереди:"/>
+                        <TextBox x:Name="txtQueueSize" Margin="0,5,0,0"/>
+                    </StackPanel>
+                    
+                    <StackPanel Grid.Column="1" Margin="5">
+                        <TextBlock Text="Время моделирования:"/>
+                        <TextBox x:Name="txtSimulationTime" Margin="0,5,0,0"/>
+                    </StackPanel>
+                    
+                    <StackPanel Grid.Column="2" Margin="5">
+                        <TextBlock Text="Шаг времени (для пошагового):"/>
+                        <TextBox x:Name="txtTimeStep" Text="0.1" Margin="0,5,0,0"/>
+                    </StackPanel>
+                </Grid>
+            </GroupBox>
 
-        <!-- Панель параметров -->
-        <GroupBox Grid.Row="0" Header="Параметры системы" Margin="0,0,0,10">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-                
-                <StackPanel Grid.Column="0" Margin="5">
-                    <TextBlock Text="Среднее время между заявками:"/>
-                    <TextBox x:Name="txtMeanGenerationTime" Text="2.0" Margin="0,5,0,0"/>
+            <!-- Распределение генератора -->
+            <GroupBox Header="Генератор заявок" Margin="0,0,0,10">
+                <StackPanel Margin="5">
+                    <ComboBox x:Name="cmbGeneratorDistribution" SelectionChanged="Distribution_SelectionChanged">
+                        <ComboBoxItem Content="Экспоненциальное" Tag="Exponential" IsSelected="True"/>
+                        <ComboBoxItem Content="Равномерное" Tag="Uniform"/>
+                        <ComboBoxItem Content="Нормальное" Tag="Normal"/>
+                        <ComboBoxItem Content="Пуассона" Tag="Poisson"/>
+                        <ComboBoxItem Content="Эрланга" Tag="Erlang"/>
+                    </ComboBox>
+                    
+                    <StackPanel x:Name="pnlGeneratorParams" Margin="0,10,0,0">
+                        <TextBlock x:Name="txtGeneratorParam1Label" Text="Среднее время:"/>
+                        <TextBox x:Name="txtGeneratorParam1" Margin="0,5,0,0"/>
+                    </StackPanel>
                 </StackPanel>
-                
-                <StackPanel Grid.Column="1" Margin="5">
-                    <TextBlock Text="Время обслуживания:"/>
-                    <TextBox x:Name="txtServiceTime" Text="1.5" Margin="0,5,0,0"/>
+            </GroupBox>
+
+            <!-- Распределение обслуживания -->
+            <GroupBox Header="Обслуживающий аппарат" Margin="0,0,0,10">
+                <StackPanel Margin="5">
+                    <ComboBox x:Name="cmbServiceDistribution" SelectionChanged="Distribution_SelectionChanged">
+                        <ComboBoxItem Content="Экспоненциальное" Tag="Exponential" IsSelected="True"/>
+                        <ComboBoxItem Content="Равномерное" Tag="Uniform"/>
+                        <ComboBoxItem Content="Нормальное" Tag="Normal"/>
+                        <ComboBoxItem Content="Пуассона" Tag="Poisson"/>
+                        <ComboBoxItem Content="Эрланга" Tag="Erlang"/>
+                    </ComboBox>
+                    
+                    <StackPanel x:Name="pnlServiceParams" Margin="0,10,0,0">
+                        <TextBlock x:Name="txtServiceParam1Label" Text="Среднее время обслуживания:"/>
+                        <TextBox x:Name="txtServiceParam1" Margin="0,5,0,0"/>
+                    </StackPanel>
                 </StackPanel>
-                
-                <StackPanel Grid.Column="2" Margin="5">
-                    <TextBlock Text="Размер очереди:"/>
-                    <TextBox x:Name="txtQueueSize" Text="5" Margin="0,5,0,0"/>
+            </GroupBox>
+
+            <!-- Управление -->
+            <GroupBox Header="Управление" Margin="0,0,0,10">
+                <StackPanel>
+                    <Button x:Name="btnStepByStep" Content="Пошаговый метод" 
+                            Click="BtnStepByStep_Click" Height="30" Margin="5"/>
+                    <Button x:Name="btnEventBased" Content="Событийный метод" 
+                            Click="BtnEventBased_Click" Height="30" Margin="5"/>
+                    <Button x:Name="btnFindOptimal" Content="Найти оптимальный размер очереди" 
+                            Click="BtnFindOptimal_Click" Height="30" Margin="5"/>
+                    <Button x:Name="btnClear" Content="Очистить" 
+                            Click="BtnClear_Click" Height="25" Margin="5"/>
                 </StackPanel>
-            </Grid>
-        </GroupBox>
+            </GroupBox>
 
-        <!-- Управление -->
-        <GroupBox Grid.Row="1" Header="Управление" Margin="0,0,0,10">
-            <StackPanel Orientation="Horizontal">
-                <Button x:Name="btnStepByStep" Content="Пошаговый метод" 
-                        Click="BtnStepByStep_Click" Height="30" Margin="5" Width="120"/>
-                <Button x:Name="btnEventBased" Content="Событийный метод" 
-                        Click="BtnEventBased_Click" Height="30" Margin="5" Width="120"/>
-                <Button x:Name="btnFindOptimal" Content="Найти оптимальную очередь" 
-                        Click="BtnFindOptimal_Click" Height="30" Margin="5" Width="150"/>
-                <Button x:Name="btnClear" Content="Очистить" 
-                        Click="BtnClear_Click" Height="30" Margin="5" Width="80"/>
-            </StackPanel>
-        </GroupBox>
+            <!-- Прогресс бар -->
+            <ProgressBar x:Name="progressBar" Height="20" Margin="0,0,0,10" 
+                       Visibility="Collapsed" IsIndeterminate="True"/>
 
-        <!-- Результаты -->
-        <GroupBox Grid.Row="2" Header="Результаты и лог событий" Margin="0,0,0,10">
-            <TextBox x:Name="txtLog" IsReadOnly="True" VerticalScrollBarVisibility="Auto" 
-                   HorizontalScrollBarVisibility="Auto" FontFamily="Consolas" FontSize="10"/>
-        </GroupBox>
+            <!-- Результаты -->
+            <GroupBox Header="Результаты">
+                <TextBox x:Name="txtLog" Height="200" IsReadOnly="True" VerticalScrollBarVisibility="Auto" 
+                       HorizontalScrollBarVisibility="Auto" FontFamily="Consolas" FontSize="10"/>
+            </GroupBox>
 
-        <!-- Статус -->
-        <StatusBar Grid.Row="3">
-            <StatusBarItem>
+            <!-- Статус -->
+            <StatusBar Margin="0,10,0,0">
                 <TextBlock x:Name="txtStatus" Text="Готов к работе"/>
-            </StatusBarItem>
-        </StatusBar>
-    </Grid>
+            </StatusBar>
+
+        </StackPanel>
+    </ScrollViewer>
 </Window>
