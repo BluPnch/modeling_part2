@@ -52,7 +52,7 @@ namespace StateSystemAnalyzer
             };
             radioManual.CheckedChanged += (s, e) => 
             { 
-                if (radioManual.Checked) InitializeMatrix(5); 
+                if (radioManual.Checked) InitializeMatrix(4); 
             };
             this.Controls.Add(radioManual);
 
@@ -69,7 +69,7 @@ namespace StateSystemAnalyzer
             {
                 Minimum = 2,
                 Maximum = 10,
-                Value = 5,
+                Value = 4,
                 Location = new Point(150, 45),
                 Size = new Size(50, 20),
                 Enabled = false
@@ -81,7 +81,7 @@ namespace StateSystemAnalyzer
             dataGridView = new DataGridView
             {
                 Location = new Point(20, 80),
-                Size = new Size(500, 300),
+                Size = new Size(400, 300),
                 AllowUserToAddRows = false,
                 AllowUserToDeleteRows = false,
                 RowHeadersVisible = true,
@@ -123,8 +123,8 @@ namespace StateSystemAnalyzer
             // Поле для результатов
             txtResults = new TextBox
             {
-                Location = new Point(550, 80),
-                Size = new Size(300, 300),
+                Location = new Point(450, 80),
+                Size = new Size(400, 300),
                 Multiline = true,
                 ScrollBars = ScrollBars.Vertical,
                 Font = new Font("Consolas", 10),
@@ -253,14 +253,22 @@ namespace StateSystemAnalyzer
                 int size = (int)nudSize.Value;
                 double[,] intensityMatrix = new double[size, size];
 
-                // Чтение данных из DataGridView
+                // Чтение данных из DataGridView с проверкой
                 for (int i = 0; i < size; i++)
                 {
                     for (int j = 0; j < size; j++)
                     {
-                        if (double.TryParse(dataGridView.Rows[i].Cells[j].Value?.ToString(), out double value))
+                        if (i < dataGridView.Rows.Count && j < dataGridView.Columns.Count)
                         {
-                            intensityMatrix[i, j] = value;
+                            var cellValue = dataGridView.Rows[i].Cells[j].Value?.ToString();
+                            if (double.TryParse(cellValue, out double value))
+                            {
+                                intensityMatrix[i, j] = value;
+                            }
+                            else
+                            {
+                                intensityMatrix[i, j] = 0;
+                            }
                         }
                         else
                         {
@@ -269,56 +277,79 @@ namespace StateSystemAnalyzer
                     }
                 }
 
-                // Находим установившиеся вероятности (предельные вероятности состояний)
+                // Находим установившиеся вероятности
                 double[] steadyStateProbabilities = FindSteadyStateProbabilities(intensityMatrix);
 
-                // Вывод результатов согласно условию лабораторной работы
+                // Вывод результатов
                 txtResults.Text = "Предельные вероятности состояний:\r\n";
                 txtResults.Text += "(установившийся режим)\r\n";
-                txtResults.Text += "-----------------------------------\r\n";
-                txtResults.Text += "Состояние\tВероятность P\u1d62\r\n";
-                txtResults.Text += "-----------------------------------\r\n";
+                txtResults.Text += "----------------------------------------\r\n";
+                txtResults.Text += "Состояние\tВероятность P\u1d62\tВремя T\u1d62\r\n";
+                txtResults.Text += "----------------------------------------\r\n";
 
                 double sumProbabilities = 0;
 
                 for (int i = 0; i < size; i++)
                 {
-                    txtResults.Text += $"S{i + 1}\t\t{steadyStateProbabilities[i]:F6}\r\n";
+                    // Расчет времени
+                    double sumOutgoing = 0;
+                    for (int j = 0; j < size; j++)
+                    {
+                        if (i != j)
+                        {
+                            sumOutgoing += intensityMatrix[i, j];
+                        }
+                    }
+                    
+                    double timeInState = (sumOutgoing > 0) ? steadyStateProbabilities[i] / sumOutgoing : 0;
+
+                    txtResults.Text += $"S{i + 1}\t\t{steadyStateProbabilities[i]:F6}\t{timeInState:F4}\r\n";
                     sumProbabilities += steadyStateProbabilities[i];
                 }
 
-                txtResults.Text += "-----------------------------------\r\n";
+                txtResults.Text += "----------------------------------------\r\n";
                 lblSum.Text = $"Сумма вероятностей: {sumProbabilities:F8}";
                 lblSum.ForeColor = Math.Abs(sumProbabilities - 1.0) < 0.0001 ? Color.Green : Color.Red;
 
-                // Дополнительная информация по условию лабы
                 txtResults.Text += $"\r\nСреднее относительное время пребывания\r\n";
-                txtResults.Text += $"в каждом состоянии равно соответствующей\r\n"; 
-                txtResults.Text += $"вероятности P\u1d62 (в установившемся режиме)\r\n";
+                txtResults.Text += $"в каждом состоянии рассчитывается по формуле:\r\n"; 
+                txtResults.Text += $"T\u1d62 = P\u1d62 / Σλ\u1d62\u1d57\r\n";
 
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Ошибка при расчетах: {ex.Message}", "Ошибка", 
-                              MessageBoxButtons.OK, MessageBoxIcon.Error);
+                txtResults.Text = $"Ошибка: {ex.Message}\r\n\r\n";
+                txtResults.Text += "Stack Trace:\r\n";
+                txtResults.Text += $"{ex.StackTrace}\r\n";
+                lblSum.Text = "Ошибка расчета";
+                lblSum.ForeColor = Color.Red;
             }
         }
-        
-                private void ShowGraph(object sender, EventArgs e)
+                
+        private void ShowGraph(object sender, EventArgs e)
         {
             try
             {
                 int size = (int)nudSize.Value;
                 double[,] intensityMatrix = new double[size, size];
 
-                // Чтение данных из DataGridView
+                // Чтение данных из DataGridView с проверкой границ
                 for (int i = 0; i < size; i++)
                 {
                     for (int j = 0; j < size; j++)
                     {
-                        if (double.TryParse(dataGridView.Rows[i].Cells[j].Value?.ToString(), out double value))
+                        // Проверяем, что индексы в пределах
+                        if (i < dataGridView.Rows.Count && j < dataGridView.Columns.Count)
                         {
-                            intensityMatrix[i, j] = value;
+                            var cell = dataGridView.Rows[i].Cells[j];
+                            if (cell.Value != null && double.TryParse(cell.Value.ToString(), out double value))
+                            {
+                                intensityMatrix[i, j] = value;
+                            }
+                            else
+                            {
+                                intensityMatrix[i, j] = 0;
+                            }
                         }
                         else
                         {
@@ -335,16 +366,20 @@ namespace StateSystemAnalyzer
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Ошибка при построении графа: {ex.Message}", "Ошибка", 
-                              MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show($"Ошибка при построении графа: {ex.Message}\n\nStack Trace:\n{ex.StackTrace}", 
+                    "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
         private Bitmap DrawStateGraph(double[,] intensityMatrix)
         {
             int size = intensityMatrix.GetLength(0);
-            int width = 500;
-            int height = 300;
+            
+            // Автоматически подбираем размер изображения в зависимости от количества состояний
+            int baseSize = Math.Max(400, size * 80);
+            int width = baseSize;
+            int height = baseSize;
+            
             Bitmap bitmap = new Bitmap(width, height);
             using (Graphics g = Graphics.FromImage(bitmap))
             {
@@ -377,36 +412,40 @@ namespace StateSystemAnalyzer
                     {
                         if (intensityMatrix[i, j] > 0 && i != j)
                         {
-                            DrawArrow(g, arrowPen, positions[i], positions[j], intensityMatrix[i, j].ToString("F1"), labelFont, labelBrush);
+                            DrawArrow(g, arrowPen, positions[i], positions[j], 
+                                     intensityMatrix[i, j].ToString("F1"), labelFont, labelBrush);
                         }
                     }
                 }
 
                 // Рисуем состояния (узлы графа)
+                int nodeSize = size > 8 ? 30 : 40; // Уменьшаем размер узлов для больших графов
+                Font stateFont = new Font("Arial", size > 8 ? 8 : 10, FontStyle.Bold);
+                
                 for (int i = 0; i < size; i++)
                 {
-                    g.FillEllipse(Brushes.LightBlue, positions[i].X - 20, positions[i].Y - 20, 40, 40);
-                    g.DrawEllipse(Pens.Black, positions[i].X - 20, positions[i].Y - 20, 40, 40);
+                    g.FillEllipse(Brushes.LightBlue, positions[i].X - nodeSize/2, positions[i].Y - nodeSize/2, nodeSize, nodeSize);
+                    g.DrawEllipse(Pens.Black, positions[i].X - nodeSize/2, positions[i].Y - nodeSize/2, nodeSize, nodeSize);
                     
                     // Номер состояния
                     StringFormat format = new StringFormat();
                     format.Alignment = StringAlignment.Center;
                     format.LineAlignment = StringAlignment.Center;
                     
-                    g.DrawString($"S{i + 1}", new Font("Arial", 10, FontStyle.Bold), 
-                                Brushes.Black, 
-                                new RectangleF(positions[i].X - 20, positions[i].Y - 20, 40, 40), 
+                    g.DrawString($"S{i + 1}", stateFont, Brushes.Black, 
+                                new RectangleF(positions[i].X - nodeSize/2, positions[i].Y - nodeSize/2, nodeSize, nodeSize), 
                                 format);
                 }
 
                 // Заголовок
-                g.DrawString("Граф состояний системы", new Font("Arial", 12, FontStyle.Bold), 
+                g.DrawString($"Граф состояний системы ({size} состояний)", 
+                           new Font("Arial", 12, FontStyle.Bold), 
                            Brushes.DarkBlue, new PointF(10, 10));
             }
 
             return bitmap;
         }
-
+        
         private void DrawArrow(Graphics g, Pen pen, Point from, Point to, string label, Font font, Brush brush)
         {
             // Вектор направления
@@ -461,13 +500,16 @@ namespace StateSystemAnalyzer
         {
             int n = intensityMatrix.GetLength(0);
 
-            // Строим матрицу коэффициентов для системы уравнений
-            double[,] coefficients = new double[n, n + 1];
+            // Строим расширенную матрицу для системы уравнений Колмогорова
+            // Уравнения: для каждого i: Σ P_j × λ_ji = P_i × Σ λ_ij
+            // Плюс условие нормировки: Σ P_i = 1
+            
+            double[,] coefficients = new double[n + 1, n + 1]; // +1 для условия нормировки
+            double[] rightSide = new double[n + 1];
 
-            // Уравнения баланса: для каждого состояния сумма входящих = сумма исходящих
+            // Уравнения баланса (первые n уравнений)
             for (int i = 0; i < n; i++)
             {
-                // Диагональные элементы = -сумма исходящих интенсивностей
                 double sumOut = 0;
                 for (int j = 0; j < n; j++)
                 {
@@ -477,21 +519,67 @@ namespace StateSystemAnalyzer
                         coefficients[i, j] = intensityMatrix[j, i]; // входящие из j в i
                     }
                 }
-                coefficients[i, i] = -sumOut;
+                coefficients[i, i] = -sumOut; // исходящие из i
+                rightSide[i] = 0;
             }
 
-            // Заменяем последнее уравнение на условие нормировки: сумма вероятностей = 1
-            for (int i = 0; i < n; i++)
+            // Условие нормировки (последнее уравнение)
+            for (int j = 0; j < n; j++)
             {
-                coefficients[n - 1, i] = 1;
+                coefficients[n, j] = 1;
             }
-            coefficients[n - 1, n] = 1;
+            rightSide[n] = 1;
 
-            // Решаем систему уравнений методом Гаусса
-            return SolveLinearSystem(coefficients);
+            // Решаем систему методом наименьших квадратов для устойчивости
+            return SolveLeastSquares(coefficients, rightSide);
         }
 
-        // Решение системы линейных уравнений методом Гаусса
+        // Решение системы методом наименьших квадратов
+        static double[] SolveLeastSquares(double[,] A, double[] b)
+        {
+            int m = A.GetLength(0); // число уравнений
+            int n = A.GetLength(1); // число переменных
+
+            // A^T × A × x = A^T × b
+            double[,] AT = new double[n, m];
+            for (int i = 0; i < n; i++)
+                for (int j = 0; j < m; j++)
+                    AT[i, j] = A[j, i];
+
+            // Вычисляем A^T × A
+            double[,] ATA = new double[n, n];
+            for (int i = 0; i < n; i++)
+                for (int j = 0; j < n; j++)
+                    for (int k = 0; k < m; k++)
+                        ATA[i, j] += AT[i, k] * A[k, j];
+
+            // Вычисляем A^T × b
+            double[] ATb = new double[n];
+            for (int i = 0; i < n; i++)
+                for (int j = 0; j < m; j++)
+                    ATb[i] += AT[i, j] * b[j];
+
+            // Решаем систему ATA × x = ATb методом Гаусса
+            return SolveLinearSystemWithAugmented(ATA, ATb);
+        }
+
+        // Решение системы линейных уравнений с расширенной матрицей
+        static double[] SolveLinearSystemWithAugmented(double[,] A, double[] b)
+        {
+            int n = A.GetLength(0);
+            double[,] augmented = new double[n, n + 1];
+            
+            for (int i = 0; i < n; i++)
+            {
+                for (int j = 0; j < n; j++)
+                    augmented[i, j] = A[i, j];
+                augmented[i, n] = b[i];
+            }
+
+            return SolveLinearSystem(augmented);
+        }
+
+        // Решение системы линейных уравнений методом Гаусса (оставить без изменений)
         static double[] SolveLinearSystem(double[,] augmentedMatrix)
         {
             int n = augmentedMatrix.GetLength(0);
@@ -520,6 +608,13 @@ namespace StateSystemAnalyzer
                     }
                 }
 
+                // Проверка на вырожденность
+                if (Math.Abs(augmentedMatrix[i, i]) < 1e-10)
+                {
+                    // Если диагональный элемент почти нулевой, устанавливаем небольшое значение
+                    augmentedMatrix[i, i] = 1e-10;
+                }
+
                 // Обнуление элементов под главной диагональю
                 for (int k = i + 1; k < n; k++)
                 {
@@ -540,6 +635,14 @@ namespace StateSystemAnalyzer
                 {
                     augmentedMatrix[k, n] -= augmentedMatrix[k, i] * solution[i];
                 }
+            }
+
+            // Нормализуем решение (сумма вероятностей = 1)
+            double sum = solution.Sum();
+            if (Math.Abs(sum) > 1e-10)
+            {
+                for (int i = 0; i < n; i++)
+                    solution[i] /= sum;
             }
 
             return solution;

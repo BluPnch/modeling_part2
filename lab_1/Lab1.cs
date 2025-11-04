@@ -21,12 +21,12 @@ namespace Lab1
         private DateTime lastTemperatureUpdate = DateTime.MinValue;
         
         private enum RandomnessMode { Normal, Lunar, Temp, Mixed }
+
         private RandomnessMode currentMode = RandomnessMode.Normal;
         
-        public class WeatherResponse
-        {
-            public MainData main { get; set; }
-        }
+        private DateTimePicker datePicker;
+        private Label moonPhaseInfoLabel;
+        
 
         public class MainData
         {
@@ -44,7 +44,7 @@ namespace Lab1
         {
             this.SuspendLayout();
             
-            this.Size = new Size(1100, 600);
+            this.Size = new Size(1100, 650);
             this.StartPosition = FormStartPosition.CenterScreen;
             
             random = new Random();
@@ -311,21 +311,46 @@ namespace Lab1
         {
             Panel buttonPanel = new Panel { 
                 Dock = DockStyle.Bottom, 
-                Height = 100,  // Увеличили высоту для нового элемента
+                Height = 130,  // Увеличили высоту для нового элемента
                 BackColor = Color.LightGray
             };
-    
-            // ДОБАВИТЬ ВЫПАДАЮЩИЙ СПИСОК ДЛЯ РЕЖИМОВ
-            Label modeLabel = new Label { 
-                Text = "Режим оценки:", 
-                Size = new Size(100, 20), 
+            
+            // ДОБАВЛЯЕМ ВЫБОР ДАТЫ
+            Label dateLabel = new Label { 
+                Text = "Дата для лунного критерия:", 
+                Size = new Size(150, 20), 
                 Location = new Point(10, 15),
                 TextAlign = ContentAlignment.MiddleLeft
             };
-    
+
+            datePicker = new DateTimePicker { 
+                Size = new Size(120, 25), 
+                Location = new Point(165, 12),
+                Value = DateTime.Now
+            };
+            datePicker.ValueChanged += (s, e) => UpdateMoonPhaseInfo();
+
+            // ИНФОРМАЦИЯ О ФАЗЕ ЛУНЫ
+            moonPhaseInfoLabel = new Label { 
+                Text = "", 
+                Size = new Size(300, 40), 
+                Location = new Point(300, 10),
+                TextAlign = ContentAlignment.MiddleLeft,
+                Font = new Font("Arial", 9, FontStyle.Regular),
+                ForeColor = Color.DarkBlue
+            };
+
+            // ВЫПАДАЮЩИЙ СПИСОК ДЛЯ РЕЖИМОВ (перемещаем ниже)
+            Label modeLabel = new Label { 
+                Text = "Режим оценки:", 
+                Size = new Size(100, 20), 
+                Location = new Point(10, 70), // Изменили Y координату
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+
             ComboBox modeComboBox = new ComboBox { 
                 Size = new Size(120, 25), 
-                Location = new Point(115, 12),
+                Location = new Point(115, 77), // Изменили Y координату
                 DropDownStyle = ComboBoxStyle.DropDownList
             };
             modeComboBox.Items.AddRange(new object[] { "Нормальный", "Лунный", "Забавный", "Смешанный" });
@@ -333,31 +358,71 @@ namespace Lab1
             modeComboBox.SelectedIndexChanged += (s, e) => 
             {
                 currentMode = (RandomnessMode)modeComboBox.SelectedIndex;
-                UpdateRandomnessResults(); // Обновляем результаты при смене режима
+                UpdateRandomnessResults();
+                UpdateMoonPhaseInfo();
             };
-    
+
             Button generateBtn = new Button { 
                 Text = "Сгенерировать новые числа", 
                 Size = new Size(180, 35), 
-                Location = new Point(250, 10),
+                Location = new Point(250, 75), // Изменили Y координату
                 BackColor = Color.White
             };
             generateBtn.Click += (s, e) => GenerateNewNumbers();
-    
+
             Button checkBtn = new Button { 
                 Text = "Проверить случайность", 
                 Size = new Size(180, 35), 
-                Location = new Point(440, 10),
+                Location = new Point(440, 75), // Изменили Y координату
                 BackColor = Color.White
             };
             checkBtn.Click += (s, e) => CheckRandomness();
-    
+
+            // ВАЖНО: ДОБАВЛЯЕМ ВСЕ ЭЛЕМЕНТЫ НА ПАНЕЛЬ
+            buttonPanel.Controls.Add(dateLabel);
+            buttonPanel.Controls.Add(datePicker);
+            buttonPanel.Controls.Add(moonPhaseInfoLabel);
             buttonPanel.Controls.Add(modeLabel);
             buttonPanel.Controls.Add(modeComboBox);
             buttonPanel.Controls.Add(generateBtn);
             buttonPanel.Controls.Add(checkBtn);
-    
+
             this.Controls.Add(buttonPanel);
+            
+            UpdateMoonPhaseInfo();
+        }
+        
+        private void UpdateMoonPhaseInfo()
+        {
+            if (currentMode == RandomnessMode.Lunar || currentMode == RandomnessMode.Mixed)
+            {
+                DateTime selectedDate = datePicker.Value;
+                int dayOfMonth = selectedDate.Day;
+        
+                (string moonPhaseName, int moonPhaseNumber, int phaseDuration) = GetMoonPhase(dayOfMonth);
+        
+                // Переводим названия фаз на русский
+                string russianPhaseName = moonPhaseName switch
+                {
+                    "New Moon" => "Новолуние",
+                    "Waxing Crescent" => "Молодая Луна",
+                    "First Quarter" => "Первая четверть",
+                    "Waxing Gibbous" => "Растущая Луна", 
+                    "Full Moon" => "Полнолуние",
+                    "Waning Gibbous" => "Убывающая Луна",
+                    "Last Quarter" => "Последняя четверть",
+                    "Waning Crescent" => "Старая Луна",
+                    _ => moonPhaseName
+                };
+        
+                moonPhaseInfoLabel.Text = $"Дата: {selectedDate:dd.MM.yyyy}\n" +
+                                          $"Фаза: {russianPhaseName} (№{moonPhaseNumber})\n" +
+                                          $"Длительность: {phaseDuration} дней";
+            }
+            else
+            {
+                moonPhaseInfoLabel.Text = "Лунный критерий не активен";
+            }
         }
 
         private void ValidateDigitInput(object sender, KeyPressEventArgs e)
@@ -457,6 +522,7 @@ namespace Lab1
             }
             
             UpdateRandomnessResults();
+            UpdateMoonPhaseInfo();
         }
 
         private double CalculateCustomRandomness(List<int> numbers)
@@ -495,7 +561,10 @@ namespace Lab1
 
         private double CalculateLunarRandomness(List<int> numbers)
         {
-            double moonPhaseScore = CalculateMoonPhaseScore(numbers);
+            DateTime selectedDate = datePicker.Value;
+            int dayOfMonth = selectedDate.Day;
+            
+            double moonPhaseScore = CalculateMoonPhaseScore(numbers, dayOfMonth);
         
             double finalScore = moonPhaseScore * 100;
         
@@ -515,20 +584,14 @@ namespace Lab1
         
         private double CalculateMixedRandomness(List<int> numbers)
         {
+            DateTime selectedDate = datePicker.Value;
+            int dayOfMonth = selectedDate.Day;
+    
             double parityScore = CalculateParityScore(numbers);
             double directionScore = CalculateDirectionScore(numbers);
             double uniquenessScore = CalculateUniquenessScore(numbers);
-            // double temperatureScore = CalculateTemperatureScore(numbers);
-            double moonPhaseScore = CalculateMoonPhaseScore(numbers);
+            double moonPhaseScore = CalculateMoonPhaseScore(numbers, dayOfMonth); // Используем выбранную дату
 
-            // double finalScore = (
-            //     parityScore * 0.25 + 
-            //     directionScore * 0.25 + 
-            //     uniquenessScore * 0.2 +
-            //     temperatureScore * 0.15 +
-            //     moonPhaseScore * 0.15
-            // ) * 100;
-            
             double finalScore = (
                 parityScore * 0.25 + 
                 directionScore * 0.25 + 
@@ -583,53 +646,77 @@ namespace Lab1
         }
 
         // Критерий Луна
-        private double CalculateMoonPhaseScore(List<int> numbers)
+        private double CalculateMoonPhaseScore(List<int> numbers, int dayOfMonth)
         {
-            int dayOfMonth = DateTime.Now.Day;
-            
-            // Определяем фазу луны на основе дня месяца с учетом длительности фаз
             (string moonPhaseName, int moonPhaseNumber, int phaseDuration) = GetMoonPhase(dayOfMonth);
             
-            // ИСПРАВЛЕНИЕ: ищем числа, КРАТНЫЕ номеру фазы, а не с остатком
             int moonMultiples = numbers.Count(n => n != 0 && n % moonPhaseNumber == 0);
             
-            // Идеальное соотношение учитывает длительность фазы
-            double idealRatio = phaseDuration / 29.5; // 29.5 - средняя длительность лунного цикла
+            double phaseRarityWeight = Math.Log(29.5 / phaseDuration / 2) + 1.0;
+            
+            double idealRatio = phaseDuration / 29.5;
+            
             double actualRatio = (double)moonMultiples / numbers.Count;
             
-            // Чем БОЛЬШЕ кратных чисел - тем МЕНЕЕ случайна последовательность
-            double deviation = Math.Max(0, actualRatio - idealRatio); // Только превышение
+            double excessRatio = Math.Max(0, actualRatio - idealRatio);
             
-            // Базовый счет: 1.0 - нет превышения, 0.0 - сильное превышение
-            double baseScore = Math.Max(0, 1.0 - (deviation));
+            double weightedExcess = excessRatio * phaseRarityWeight;
             
-            // Вывод в консоль
+            double maxPossibleExcess = 1.0 - idealRatio;
+            double normalizedExcess = maxPossibleExcess > 0 ? weightedExcess / maxPossibleExcess : 0;
+            
+            double finalExcess = Math.Min(1.0, normalizedExcess);
+            
+            double baseScore = 1.0 - finalExcess;
+            
             Console.WriteLine($"=== MOON PHASE CRITERION ===");
             Console.WriteLine($"Day of month: {dayOfMonth}");
             Console.WriteLine($"Current Moon Phase: {moonPhaseName} (Phase number: {moonPhaseNumber})");
+            Console.WriteLine($"Phase duration: {phaseDuration} days");
+            Console.WriteLine($"Phase rarity weight: {phaseRarityWeight:F2}");
             Console.WriteLine($"Looking for numbers MULTIPLE of {moonPhaseNumber}");
             Console.WriteLine($"Numbers checked: {string.Join(", ", numbers)}");
             
             var multiples = numbers.Where(n => n != 0 && n % moonPhaseNumber == 0).ToList();
             Console.WriteLine($"Multiples of {moonPhaseNumber}: {(multiples.Any() ? string.Join(", ", multiples) : "None")}");
             
-            Console.WriteLine($"Numbers multiple of moon phase: {moonMultiples}");
+            Console.WriteLine($"Numbers multiple of moon phase: {moonMultiples}/{numbers.Count}");
             Console.WriteLine($"Ideal ratio: {idealRatio:P1} (based on {phaseDuration} days duration)");
             Console.WriteLine($"Actual ratio: {actualRatio:P2}");
-            Console.WriteLine($"Deviation (excess only): {deviation:P2}, Base score: {baseScore:P2}");
+            Console.WriteLine($"Excess ratio: {excessRatio:P2}");
+            Console.WriteLine($"Weighted excess: {weightedExcess:P2}");
+            Console.WriteLine($"Normalized excess: {normalizedExcess:P2}");
+            Console.WriteLine($"Final score: {baseScore:P2}");
             
-            // Дополнительная информация для понимания логики
             if (moonMultiples == 0)
             {
                 Console.WriteLine($"NO multiples - MOST RANDOM (score: {baseScore:P2})");
             }
-            else if (actualRatio <= idealRatio)
+            else if (excessRatio == 0)
             {
-                Console.WriteLine($"Within acceptable range - RANDOM (score: {baseScore:P2})");
+                if (phaseDuration <= 2)
+                {
+                    Console.WriteLine($"RARE phase - acceptable multiples - RANDOM (score: {baseScore:P2})");
+                }
+                else
+                {
+                    Console.WriteLine($"Within acceptable range - RANDOM (score: {baseScore:P2})");
+                }
             }
             else
             {
-                Console.WriteLine($"TOO MANY multiples - NOT RANDOM (score: {baseScore:P2})");
+                if (moonMultiples == numbers.Count)
+                {
+                    Console.WriteLine($"ALL numbers are multiples - COMPLETELY NOT RANDOM (score: {baseScore:P2})");
+                }
+                else if (phaseDuration <= 2)
+                {
+                    Console.WriteLine($"RARE phase - TOO MANY multiples - NOT RANDOM (score: {baseScore:P2})");
+                }
+                else
+                {
+                    Console.WriteLine($"TOO MANY multiples - NOT RANDOM (score: {baseScore:P2})");
+                }
             }
             Console.WriteLine($"=============================");
             
@@ -643,21 +730,21 @@ namespace Lab1
             int dayInCycle = ((dayOfMonth - 1) % 29) + 1; // День в лунном цикле (1-29)
             
             if (dayInCycle <= 1)
-                return ("New Moon", 1, 1); // Новолуние - 1 день
+                return ("Новолуние", 1, 1); // Новолуние - 1 день
             else if (dayInCycle <= 6)
-                return ("Waxing Crescent", 2, 5); // Молодая Луна - 5 дней
+                return ("Молодая Луна", 2, 5); // Молодая Луна - 5 дней
             else if (dayInCycle <= 8)
-                return ("First Quarter", 3, 2); // Первая четверть - 2 дня
+                return ("Первая четверть", 3, 2); // Первая четверть - 2 дня
             else if (dayInCycle <= 13)
-                return ("Waxing Gibbous", 4, 5); // Растущая Луна - 5 дней
+                return ("Растущая Луна", 4, 5); // Растущая Луна - 5 дней
             else if (dayInCycle <= 15)
-                return ("Full Moon", 5, 2); // Полнолуние - 2 дня
+                return ("Полнолуние", 5, 2); // Полнолуние - 2 дня
             else if (dayInCycle <= 20)
-                return ("Waning Gibbous", 6, 5); // Убывающая Луна - 5 дней
+                return ("Убывающая Луна", 6, 5); // Убывающая Луна - 5 дней
             else if (dayInCycle <= 22)
-                return ("Last Quarter", 7, 2); // Последняя четверть - 2 дня
+                return ("Последняя четверть", 7, 2); // Последняя четверть - 2 дня
             else
-                return ("Waning Crescent", 8, 7); // Старая Луна - 7 дней
+                return ("Старая Луна", 8, 7); // Старая Луна - 7 дней
         }
         
         // private double CalculateTemperatureScore(List<int> numbers)
