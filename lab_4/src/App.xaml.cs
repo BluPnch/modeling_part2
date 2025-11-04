@@ -9,21 +9,13 @@ namespace lab_4
         {
             base.OnStartup(e);
             
-            // Обработка необработанных исключений
-            AppDomain.CurrentDomain.UnhandledException += (s, args) => 
-            {
-                MessageBox.Show($"Необработанная ошибка: {((Exception)args.ExceptionObject).Message}", 
-                    "Критическая ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
-            };
-            
+            // Минимальная обработка ошибок
             this.DispatcherUnhandledException += (s, args) => 
             {
-                MessageBox.Show($"Ошибка в UI: {args.Exception.Message}", 
-                    "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Ошибка: {args.Exception.Message}", "Ошибка", 
+                    MessageBoxButton.OK, MessageBoxImage.Error);
                 args.Handled = true;
             };
-            
-            // УДАЛИТЕ эту строку: txtStatus.Text = "Приложение запущено успешно!";
         }
     }
 }
